@@ -1,68 +1,69 @@
-using Unity.VisualScripting;
+using System.Collections;
 using UnityEngine;
 
 public class PlayerInteraction : MonoBehaviour
 {
     [Header("Interaction Settings")]
     public float interactRange = 3f;
-    public float throwForce = 10f; // The power when pressing 'F'
-    public float dropForce = 2f; // The short toss when pressing 'E'
-    public Transform holdPoint; // Where the object sits in your hand
+    public float throwForce = 15f;
+    public float dropForce = 2f;
+    public Transform holdPoint;
 
     [Header("Audio Settings")]
-    public AudioSource playerAudio; 
-
+    public AudioSource playerAudio;
 
     private GameObject heldObject;
     private Rigidbody heldObjectRb;
-    private Collider heldObjectCollider; //This variabels keeps tabs on the collider of the held object, so we can disable it while holding
+    private Collider heldObjectCollider;
     private Camera cam;
+
+    private bool isConsuming = false;
 
     void Start()
     {
-        // Assumes this script is placed on the main camera
         cam = GetComponent<Camera>();
     }
 
     void Update()
     {
-        // Create a raycast from the center of the camera
+        if (isConsuming) return;
+
         Ray ray = new Ray(cam.transform.position, cam.transform.forward);
         RaycastHit hit;
 
-        // Draw a red line in the editor so you can see the laser while testing
         Debug.DrawRay(ray.origin, ray.direction * interactRange, Color.red);
 
-        // 1. Pick up or Drop (Press 'E')
         if (Input.GetKeyDown(KeyCode.E))
         {
-            if (heldObject == null) // If our hands are empty
+            if (heldObject == null)
             {
                 if (Physics.Raycast(ray, out hit, interactRange))
                 {
-                    // Check if the object we hit is tagged as "Interactable"
                     if (hit.collider.CompareTag("Interactable"))
                     {
                         PickUpObject(hit.collider.gameObject);
                     }
                 }
             }
-            else // We are already holding something, so drop it (short toss)
+            else
             {
                 DropObject();
             }
         }
 
-        // 2. Throw the object hard (Press 'F')
         if (Input.GetKeyDown(KeyCode.F) && heldObject != null)
         {
             ThrowObject();
         }
 
-        // 3. Use / Consume the object (Left Mouse Button)
+        // VÄNSTERKLICK för att använda/dricka
         if (Input.GetMouseButtonDown(0) && heldObject != null)
         {
-            TryConsumeObject();
+            ConsumableItem consumable = heldObject.GetComponent<ConsumableItem>();
+            if (consumable != null)
+            {
+                StartCoroutine(ConsumeRoutine(consumable));
+            }
         }
     }
 
@@ -70,31 +71,24 @@ public class PlayerInteraction : MonoBehaviour
     {
         heldObject = obj;
         heldObjectRb = obj.GetComponent<Rigidbody>();
-        heldObjectCollider = obj.GetComponent<Collider>(); // Get the collider of the held object
+        heldObjectCollider = obj.GetComponent<Collider>();
 
-        // Turn off physics so the object doesn't fall out of our hand
         heldObjectRb.isKinematic = true;
-        heldObjectCollider.enabled = false; // Disable the collider to prevent physics interactions while holding
+        heldObjectCollider.enabled = false;
 
-        // Move the object to our HoldPoint and make it a child
         heldObject.transform.SetParent(holdPoint);
         heldObject.transform.localPosition = Vector3.zero;
-        heldObject.transform.localRotation = Quaternion.identity; // Resets rotation
+        heldObject.transform.localRotation = Quaternion.identity;
     }
 
     void DropObject()
     {
-        // Turn physics back on
         heldObjectRb.isKinematic = false;
-        heldObjectCollider.enabled = true; // Re-enable the collider when dropping
+        heldObjectCollider.enabled = true;
 
-        // Remove it from the HoldPoint
         heldObject.transform.SetParent(null);
-
-        // Add a small forward force to simulate a short drop/toss
         heldObjectRb.AddForce(cam.transform.forward * dropForce, ForceMode.Impulse);
 
-        // Clear our variables
         heldObject = null;
         heldObjectRb = null;
         heldObjectCollider = null;
@@ -102,47 +96,131 @@ public class PlayerInteraction : MonoBehaviour
 
     void ThrowObject()
     {
-        // Turn physics back on
         heldObjectRb.isKinematic = false;
-        heldObjectCollider.enabled = true; // Re-enable the collider when throwing
+        heldObjectCollider.enabled = true;
 
-        // Remove it from the HoldPoint
         heldObject.transform.SetParent(null);
-
-        // Add a large forward force to simulate throwing hard
         heldObjectRb.AddForce(cam.transform.forward * throwForce, ForceMode.Impulse);
 
-        // Clear our variables
         heldObject = null;
         heldObjectRb = null;
         heldObjectCollider = null;
     }
 
-    void TryConsumeObject()
+    IEnumerator ConsumeRoutine(ConsumableItem consumable)
     {
-        ConsumableItem consumable = heldObject.GetComponent<ConsumableItem>();
+        isConsuming = true;
 
-        if (consumable != null)
+        // ========================================================
+        // STEG 1: ÖPPNA FLASKAN DIREKT
+        // ========================================================
+        if (consumable.visualWithCap != null && consumable.visualWithCap.activeSelf)
         {
-            // Nu hämtar koden namnet direkt från objektet i Unity-hierarkin
-            Debug.Log("Consumed " + heldObject.name + ". Restored " + consumable.thirstRestore + " Thirst.");
-
-            // Spela upp ljudet om det finns ett inlagt
-            if (consumable.consumeSound != null && playerAudio != null)
+            if (consumable.openSound != null && playerAudio != null)
             {
-                playerAudio.PlayOneShot(consumable.consumeSound);
+                playerAudio.PlayOneShot(consumable.openSound);
             }
 
-            Destroy(heldObject);
+            consumable.visualWithCap.SetActive(false);
+            if (consumable.visualWithoutCap != null)
+            {
+                consumable.visualWithoutCap.SetActive(true);
+            }
 
-            heldObject = null;
-            heldObjectRb = null;
-            heldObjectCollider = null;
+            if (consumable.capPrefab != null)
+            {
+                Vector3 spawnPos = holdPoint.position - new Vector3(0f, 0.2f, 0f);
+                GameObject droppedCap = Instantiate(consumable.capPrefab, spawnPos, Quaternion.identity);
+                Rigidbody capRb = droppedCap.GetComponent<Rigidbody>();
+
+                if (capRb != null)
+                {
+                    Vector3 popDirection = (cam.transform.forward - cam.transform.up) * 1.5f;
+                    capRb.AddForce(popDirection, ForceMode.Impulse);
+                }
+            }
+
+            yield return new WaitForSeconds(0.15f);
+        }
+
+        // ========================================================
+        // STEG 2: FÖR UPP TILL MUNNEN, VINKLA OCH DRICK (Tyst)
+        // ========================================================
+        Vector3 startPos = heldObject.transform.localPosition;
+        Vector3 targetPos = startPos + consumable.mouthOffset;
+
+        // NYTT: Hantera rotationen
+        Quaternion startRot = heldObject.transform.localRotation;
+        Quaternion targetRot = Quaternion.Euler(consumable.mouthRotation);
+
+        float elapsed = 0f;
+
+        while (elapsed < consumable.consumeDuration)
+        {
+            elapsed += Time.deltaTime;
+            float percent = elapsed / consumable.consumeDuration;
+
+            heldObject.transform.localPosition = Vector3.Lerp(startPos, targetPos, percent);
+            heldObject.transform.localRotation = Quaternion.Lerp(startRot, targetRot, percent); // NYTT: Vinklar flaskan
+
+            yield return null;
+        }
+
+        yield return new WaitForSeconds(0.6f);
+
+        // ========================================================
+        // STEG 3: FÖR BORT FRÅN MUNNEN, ROTERA TILLBAKA & RAPA
+        // ========================================================
+        elapsed = 0f;
+        while (elapsed < consumable.consumeDuration)
+        {
+            elapsed += Time.deltaTime;
+            float percent = elapsed / consumable.consumeDuration;
+
+            heldObject.transform.localPosition = Vector3.Lerp(targetPos, startPos, percent);
+            heldObject.transform.localRotation = Quaternion.Lerp(targetRot, startRot, percent); // NYTT: Vinklar tillbaka
+
+            yield return null;
+        }
+
+        if (consumable.burpSound != null && playerAudio != null)
+        {
+            playerAudio.PlayOneShot(consumable.burpSound);
+            yield return new WaitForSeconds(consumable.burpSound.length);
         }
         else
         {
-            Debug.Log("This item cannot be consumed.");
+            yield return new WaitForSeconds(1f);
         }
-    }
 
+        Debug.Log("Drack upp: " + heldObject.name);
+
+        // ========================================================
+        // STEG 4: SLÄPP DEN TOMMA FLASKAN 
+        // ========================================================
+        if (consumable.destroyOnConsume)
+        {
+            Destroy(heldObject);
+        }
+        else
+        {
+            GameObject emptyBottle = heldObject;
+            emptyBottle.transform.SetParent(null);
+
+            Rigidbody rb = emptyBottle.GetComponent<Rigidbody>();
+            Collider col = emptyBottle.GetComponent<Collider>();
+
+            rb.isKinematic = false;
+            col.enabled = true;
+
+            rb.AddForce(cam.transform.forward * 1f, ForceMode.Impulse);
+            Destroy(emptyBottle.GetComponent<ConsumableItem>());
+        }
+
+        heldObject = null;
+        heldObjectRb = null;
+        heldObjectCollider = null;
+
+        isConsuming = false;
+    }
 }

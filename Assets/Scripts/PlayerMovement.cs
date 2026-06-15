@@ -8,17 +8,26 @@ public class PlayerMovement : MonoBehaviour
 
     [Header("Jump & Crouch Settings")]
     public float jumpForce = 5f;
-    private float startYScale;
     private bool isCrouching = false;
 
     private Rigidbody rb;
+    private CapsuleCollider col;
+    private Camera cam;
+
+    private float startHeight;
+    private float camStartY;
     private float x, z;
     private bool isGrounded;
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
-        startYScale = transform.localScale.y; // Store original height
+        col = GetComponent<CapsuleCollider>();
+        cam = GetComponentInChildren<Camera>(); // Hittar kameran automatiskt
+
+        // Sparar originalhöjden på collidern och kamerans position istället för scale
+        if (col != null) startHeight = col.height;
+        if (cam != null) camStartY = cam.transform.localPosition.y;
     }
 
     void Update()
@@ -39,24 +48,32 @@ public class PlayerMovement : MonoBehaviour
             isCrouching = !isCrouching;
             if (isCrouching)
             {
-                // Shrink player to half size
-                transform.localScale = new Vector3(transform.localScale.x, startYScale * 0.5f, transform.localScale.z);
-                rb.AddForce(Vector3.down * 5f, ForceMode.Impulse); // Push down to prevent floating
+                // Ändrar höjden på krocklådan
+                if (col != null) col.height = startHeight * 0.5f;
+
+                // Flyttar ner kameran
+                if (cam != null) cam.transform.localPosition = new Vector3(cam.transform.localPosition.x, camStartY - (startHeight * 0.25f), cam.transform.localPosition.z);
+
+                rb.AddForce(Vector3.down * 5f, ForceMode.Impulse); // Push down
             }
             else
             {
-                // Restore original height
-                transform.localScale = new Vector3(transform.localScale.x, startYScale, transform.localScale.z);
+                // Återställer höjden på krocklådan
+                if (col != null) col.height = startHeight;
+
+                // Flyttar upp kameran igen
+                if (cam != null) cam.transform.localPosition = new Vector3(cam.transform.localPosition.x, camStartY, cam.transform.localPosition.z);
             }
         }
     }
 
     void FixedUpdate()
     {
-        // Check if standing on the ground using a short raycast downwards
-        isGrounded = Physics.Raycast(transform.position, Vector3.down, (transform.localScale.y) + 0.2f);
+        // Check if standing on ground (Uppdaterad till att mäta via krocklådans höjd istället för scale)
+        float rayLength = (col != null ? col.height / 2f : 1f) + 0.2f;
+        isGrounded = Physics.Raycast(transform.position, Vector3.down, rayLength);
 
-        // Determine speed based on sprinting or crouching state
+        // Determine speed
         float currentSpeed = walkSpeed;
 
         if (Input.GetKey(KeyCode.LeftShift)) // Sprint
@@ -69,18 +86,12 @@ public class PlayerMovement : MonoBehaviour
         }
 
         // --- CS-STYLE SNAPPY MOVEMENT ---
-
-        // 1. Calculate the exact direction and speed we WANT to go
         Vector3 targetDirection = (transform.right * x + transform.forward * z).normalized;
         Vector3 targetVelocity = targetDirection * currentSpeed;
 
-        // 2. Look at how fast we are CURRENTLY going (ignoring up/down Y axis)
         Vector3 currentVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-
-        // 3. Calculate the difference
         Vector3 velocityChange = targetVelocity - currentVelocity;
 
-        // 4. Force the physics engine to apply that exact difference immediately
         rb.AddForce(velocityChange, ForceMode.VelocityChange);
     }
 }
