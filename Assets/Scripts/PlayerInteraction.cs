@@ -9,6 +9,10 @@ public class PlayerInteraction : MonoBehaviour
     public float dropForce = 2f; // The short toss when pressing 'E'
     public Transform holdPoint; // Where the object sits in your hand
 
+    [Header("Audio Settings")]
+    public AudioSource playerAudio; 
+
+
     private GameObject heldObject;
     private Rigidbody heldObjectRb;
     private Collider heldObjectCollider; //This variabels keeps tabs on the collider of the held object, so we can disable it while holding
@@ -53,6 +57,12 @@ public class PlayerInteraction : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.F) && heldObject != null)
         {
             ThrowObject();
+        }
+
+        // 3. Use / Consume the object (Left Mouse Button)
+        if (Input.GetMouseButtonDown(0) && heldObject != null)
+        {
+            TryConsumeObject();
         }
     }
 
@@ -106,6 +116,33 @@ public class PlayerInteraction : MonoBehaviour
         heldObject = null;
         heldObjectRb = null;
         heldObjectCollider = null;
+    }
+
+    void TryConsumeObject()
+    {
+        ConsumableItem consumable = heldObject.GetComponent<ConsumableItem>();
+
+        if (consumable != null)
+        {
+            // Nu hämtar koden namnet direkt från objektet i Unity-hierarkin
+            Debug.Log("Consumed " + heldObject.name + ". Restored " + consumable.thirstRestore + " Thirst.");
+
+            // Spela upp ljudet om det finns ett inlagt
+            if (consumable.consumeSound != null && playerAudio != null)
+            {
+                playerAudio.PlayOneShot(consumable.consumeSound);
+            }
+
+            Destroy(heldObject);
+
+            heldObject = null;
+            heldObjectRb = null;
+            heldObjectCollider = null;
+        }
+        else
+        {
+            Debug.Log("This item cannot be consumed.");
+        }
     }
 
 }
