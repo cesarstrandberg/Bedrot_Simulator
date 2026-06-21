@@ -12,6 +12,12 @@ public class PlayerInteraction : MonoBehaviour
     [Header("Audio Settings")]
     public AudioSource playerAudio;
 
+    [Header("Arm Animation Settings")]
+    public Transform armRoot; // Dra in ditt arm-huvudobjekt här!
+    public Vector3 drinkPositionOffset = new Vector3(-0.2f, 0.15f, -0.05f); // För att dra in armen till mitten (munnen)
+    public Vector3 drinkRotationOffset = new Vector3(-40f, 20f, 0f); // För att tilta handleden
+    public float moveSpeed = 0.4f;
+
     private GameObject heldObject;
     private Rigidbody heldObjectRb;
     private Collider heldObjectCollider;
@@ -22,6 +28,12 @@ public class PlayerInteraction : MonoBehaviour
     void Start()
     {
         cam = GetComponent<Camera>();
+
+        // Göm armarna från början om vi inte håller i något
+        if (armRoot != null)
+        {
+            armRoot.gameObject.SetActive(false);
+        }
     }
 
     void Update()
@@ -79,6 +91,9 @@ public class PlayerInteraction : MonoBehaviour
         heldObject.transform.SetParent(holdPoint);
         heldObject.transform.localPosition = Vector3.zero;
         heldObject.transform.localRotation = Quaternion.identity;
+
+        // VISA ARMARNA när vi plockar upp något
+        if (armRoot != null) armRoot.gameObject.SetActive(true);
     }
 
     void DropObject()
@@ -92,6 +107,9 @@ public class PlayerInteraction : MonoBehaviour
         heldObject = null;
         heldObjectRb = null;
         heldObjectCollider = null;
+
+        // GÖM ARMARNA
+        if (armRoot != null) armRoot.gameObject.SetActive(false);
     }
 
     void ThrowObject()
@@ -105,6 +123,9 @@ public class PlayerInteraction : MonoBehaviour
         heldObject = null;
         heldObjectRb = null;
         heldObjectCollider = null;
+
+        // GÖM ARMARNA
+        if (armRoot != null) armRoot.gameObject.SetActive(false);
     }
 
     IEnumerator ConsumeRoutine(ConsumableItem consumable)
@@ -144,59 +165,69 @@ public class PlayerInteraction : MonoBehaviour
         }
 
         // ========================================================
-        // STEG 2: FÖR UPP TILL MUNNEN, VINKLA OCH DRICK (Tyst)
+        // STEG 2: FLYTTA HELA ARMEN UPP TILL MUNNEN
         // ========================================================
-        Vector3 startPos = heldObject.transform.localPosition;
-        Vector3 targetPos = startPos + consumable.mouthOffset;
+        Vector3 startPos = armRoot.localPosition;
+        Quaternion startRot = armRoot.localRotation;
 
-        // NYTT: Hantera rotationen
-        Quaternion startRot = heldObject.transform.localRotation;
-        Quaternion targetRot = Quaternion.Euler(consumable.mouthRotation);
+        Vector3 targetPos = startPos + drinkPositionOffset;
+        Quaternion targetRot = startRot * Quaternion.Euler(drinkRotationOffset);
 
         float elapsed = 0f;
 
-        while (elapsed < consumable.consumeDuration)
+        while (elapsed < moveSpeed)
         {
             elapsed += Time.deltaTime;
-            float percent = elapsed / consumable.consumeDuration;
+            
+            //Makes it so that the movement gets a soft start and soft stop
+            float rawPercent = elapsed / moveSpeed;
+            float smoothPercent = Mathf.SmoothStep(0f, 1f, rawPercent);
 
-            heldObject.transform.localPosition = Vector3.Lerp(startPos, targetPos, percent);
-            heldObject.transform.localRotation = Quaternion.Lerp(startRot, targetRot, percent); // NYTT: Vinklar flaskan
+            //Calculate the position
+            Vector3 currentPos = Vector3.Lerp(startPos, targetPos, smoothPercent);
+
+            //Fake roation! makes the arm swing downwords in the middle of the movemenet
+            //So that it feels like the rotatuion bends (Change from 0.05 for more or less swing)
+            currentPos.y -= Mathf.Sin(smoothPercent * Mathf.PI) * 0.05f;
+
+            armRoot.localPosition = currentPos;
+            armRoot.localRotation = Quaternion.Lerp(startRot, targetRot, smoothPercent);
 
             yield return null;
         }
 
-        yield return new WaitForSeconds(0.6f);
+        yield return new WaitForSeconds(2.6f);
 
         // ========================================================
-        // STEG 3: FÖR BORT FRÅN MUNNEN, ROTERA TILLBAKA & RAPA
+        // STEG 3: FÖR TILLBAKA ARMEN & RAPA
         // ========================================================
         elapsed = 0f;
-        while (elapsed < consumable.consumeDuration)
+        while (elapsed < moveSpeed)
         {
             elapsed += Time.deltaTime;
-            float percent = elapsed / consumable.consumeDuration;
+            float rawPercent = elapsed / moveSpeed;
+            float smoothPercent = Mathf.SmoothStep(0f, 1f, rawPercent);
 
-            heldObject.transform.localPosition = Vector3.Lerp(targetPos, startPos, percent);
-            heldObject.transform.localRotation = Quaternion.Lerp(targetRot, startRot, percent); // NYTT: Vinklar tillbaka
+            Vector3 currentPos = Vector3.Lerp(targetPos, startPos, smoothPercent);
+            currentPos.y -= Mathf.Sin(smoothPercent * Mathf.PI) * 0.05f; // Samma sving på väg ner
+
+            armRoot.localPosition = currentPos;
+            armRoot.localRotation = Quaternion.Lerp(targetRot, startRot, smoothPercent);
 
             yield return null;
         }
 
-        if (consumable.burpSound != null && playerAudio != null)
+        // Tvinga armen att sitta helt perfekt efteråt
+        armRoot.localPosition = startPos;
+        armRoot.localRotation = startRot;
+
+        if(consumable.burpSound != null && playerAudio != null)
         {
             playerAudio.PlayOneShot(consumable.burpSound);
-            yield return new WaitForSeconds(consumable.burpSound.length);
         }
-        else
-        {
-            yield return new WaitForSeconds(1f);
-        }
-
-        Debug.Log("Drack upp: " + heldObject.name);
 
         // ========================================================
-        // STEG 4: SLÄPP DEN TOMMA FLASKAN 
+        // STEG 4: SLÄPP DEN TOMMA FLASKAN & GÖM ARMEN
         // ========================================================
         if (consumable.destroyOnConsume)
         {
@@ -213,13 +244,15 @@ public class PlayerInteraction : MonoBehaviour
             rb.isKinematic = false;
             col.enabled = true;
 
+            // Flaskan behåller sin "Interactable"-tagg så du kan ta upp den igen
             rb.AddForce(cam.transform.forward * 1f, ForceMode.Impulse);
+
+            // Men vi spränger bort Consumable-skriptet så den inte går att dricka ur!
             Destroy(emptyBottle.GetComponent<ConsumableItem>());
         }
 
-        heldObject = null;
-        heldObjectRb = null;
-        heldObjectCollider = null;
+        // GÖM ARMARNA EFTER VI HAR DROPPAT DEN TOMMA FLASKAN
+        if (armRoot != null) armRoot.gameObject.SetActive(false);
 
         isConsuming = false;
     }

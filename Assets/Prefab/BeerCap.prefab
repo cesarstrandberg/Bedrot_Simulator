@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 9021735732295212294}
   - component: {fileID: 7749834121052975835}
   - component: {fileID: 9071684360494294475}
+  - component: {fileID: 4266621587198465105}
   m_Layer: 0
   m_Name: BeerCap
   m_TagString: Untagged
@@ -140,4 +141,25 @@ Rigidbody:
   m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 0
-  m_CollisionDetection: 0
+  m_CollisionDetection: 1
+--- !u!65 &4266621587198465105
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6887321569632319784}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.16333613, y: 0.035751052, z: 0.16154432}
+  m_Center: {x: 0.0018915161, y: -0.0008238321, z: 0.00092785433}

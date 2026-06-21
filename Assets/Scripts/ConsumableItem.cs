@@ -12,6 +12,7 @@ public class ConsumableItem : MonoBehaviour
     [Header("Audio Clips")]
     public AudioClip openSound;
     public AudioClip burpSound;
+    public AudioClip drinkSound;
 
     [Header("Visuals & Swapping")]
     public GameObject visualWithCap;
