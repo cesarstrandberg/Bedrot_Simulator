@@ -1,13 +1,21 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class PlayerInteraction : MonoBehaviour
 {
     [Header("Interaction Settings")]
+    public Transform generalHoldPoint;
+    public Vector3 generalItemRotation = new Vector3(-90f, 0f, 0f);
     public float interactRange = 3f;
     public float throwForce = 15f;
     public float dropForce = 2f;
     public Transform holdPoint;
+
+    [Header("UI Setings")]
+    public Image crosshairImage;
+    public Color defaultColor = Color.white;
+    public Color interactColor = Color.red;
 
     [Header("Audio Settings")]
     public AudioSource playerAudio;
@@ -22,6 +30,8 @@ public class PlayerInteraction : MonoBehaviour
     private Rigidbody heldObjectRb;
     private Collider heldObjectCollider;
     private Camera cam;
+    private bool isHoldingGeneralItem = false;
+    public float scrollRotateSpeed = 10f;
 
     private bool isConsuming = false;
 
@@ -43,17 +53,52 @@ public class PlayerInteraction : MonoBehaviour
         Ray ray = new Ray(cam.transform.position, cam.transform.forward);
         RaycastHit hit;
 
+        bool isLookingAtInteractable = false;
+        GameObject interactableObject = null;
+
         Debug.DrawRay(ray.origin, ray.direction * interactRange, Color.red);
 
+        // 1. Kolla alltid vad lasern träffar (om händerna är tomma)
+        if (heldObject == null)
+        {
+            if (Physics.Raycast(ray, out hit, interactRange))
+            {
+                if (hit.collider.CompareTag("Interactable") || hit.collider.CompareTag("door") || hit.collider.CompareTag("lightswitch"))
+                {
+                    isLookingAtInteractable = true;
+                    interactableObject = hit.collider.gameObject;
+                }
+            }
+        }
+
+        // 2. Uppdatera crosshairet baserat på vad vi tittar på
+        // 2. Uppdatera crosshairets FÄRG och ALPHA baserat på vad vi tittar på
+        if (crosshairImage != null)
+        {
+            if (heldObject == null && isLookingAtInteractable)
+            {
+                // Om händerna är tomma och vi kollar på en pryl/dörr: Byt till Interact-färgen
+                crosshairImage.color = interactColor;
+            }
+            else
+            {
+                // Annars (om vi kollar bort eller bär något): Byt till Default-färgen
+                crosshairImage.color = defaultColor;
+            }
+        }
+
+        // 3. Hantera plocka upp / släppa
         if (Input.GetKeyDown(KeyCode.E))
         {
             if (heldObject == null)
             {
-                if (Physics.Raycast(ray, out hit, interactRange))
+                if (isLookingAtInteractable && interactableObject != null)
                 {
-                    if (hit.collider.CompareTag("Interactable"))
+                    // LIVSVIKTIG SPÄRR: Plocka bara upp objektet om det har en Rigidbody.
+                    // Lampknappar och dörrar kommer ändra din crosshair, men ignoreras när du trycker E.
+                    if (interactableObject.GetComponent<Rigidbody>() != null)
                     {
-                        PickUpObject(hit.collider.gameObject);
+                        PickUpObject(interactableObject);
                     }
                 }
             }
@@ -66,6 +111,16 @@ public class PlayerInteraction : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.F) && heldObject != null)
         {
             ThrowObject();
+        }
+
+        // Scrool to rotate the held objects x-axis (only for general items, not consumables)
+        if (heldObject != null && isHoldingGeneralItem)
+        {
+            float scroll = Input.GetAxis("Mouse ScrollWheel");
+            if (scroll != 0f)
+            {
+                heldObject.transform.Rotate(Vector3.right * scroll * scrollRotateSpeed, Space.Self);
+            }
         }
 
         // VÄNSTERKLICK för att använda/dricka
@@ -88,12 +143,35 @@ public class PlayerInteraction : MonoBehaviour
         heldObjectRb.isKinematic = true;
         heldObjectCollider.enabled = false;
 
-        heldObject.transform.SetParent(holdPoint);
-        heldObject.transform.localPosition = Vector3.zero;
-        heldObject.transform.localRotation = Quaternion.identity;
+        // Kollar om det är en öl
+        ConsumableItem consumable = obj.GetComponent<ConsumableItem>();
 
-        // VISA ARMARNA när vi plockar upp något
-        if (armRoot != null) armRoot.gameObject.SetActive(true);
+        if (consumable != null)
+        {
+            // ÖLEN: Sätts på din nuvarande, snygga arm-hållpunkt
+            heldObject.transform.SetParent(holdPoint);
+            if (armRoot != null) armRoot.gameObject.SetActive(true);
+
+            isHoldingGeneralItem = false; // Locks the scrool when holding a consumable item
+
+            // --- FIX FÖR ÖLEN: Vrids till (0, 0, 0) så den passar handen ---
+            heldObject.transform.localRotation = Quaternion.identity;
+        }
+        else
+        {
+            // General Items: Applies to the floating point infront of the camera
+            heldObject.transform.SetParent(generalHoldPoint);
+            // Armen förblir gömd eftersom vi inte rör armRoot här!
+            isHoldingGeneralItem = true; // Unlocks the scrool when holding a general item
+
+            // --- FIX FÖR VANLIGA PRYLAR: Vrids till den vinkel du valt (-90, 0, 0) ---
+            heldObject.transform.localRotation = Quaternion.Euler(generalItemRotation);
+        }
+
+        // Vi behåller localPosition för ALLA objekt
+        heldObject.transform.localPosition = Vector3.zero;
+
+        // --- FUNDAMENTAL ÄNDRING: Raden heldObject.transform.localRotation = Quaternion.identity; ÄR RADERAD HÄRIFRÅN ---
     }
 
     void DropObject()
@@ -110,6 +188,8 @@ public class PlayerInteraction : MonoBehaviour
 
         // GÖM ARMARNA
         if (armRoot != null) armRoot.gameObject.SetActive(false);
+
+        isHoldingGeneralItem = false;
     }
 
     void ThrowObject()
@@ -126,6 +206,8 @@ public class PlayerInteraction : MonoBehaviour
 
         // GÖM ARMARNA
         if (armRoot != null) armRoot.gameObject.SetActive(false);
+
+        isHoldingGeneralItem = false;
     }
 
     IEnumerator ConsumeRoutine(ConsumableItem consumable)
