@@ -86,6 +86,9 @@ public class JointCraftingStation : MonoBehaviour
     {
         if (!isMinigameActive) return;
 
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
         // --- STEP 5: GRINDING WITH MOUSE SCROLL ---
         if (currentStep == CraftingStep.GrindWeed)
         {
@@ -160,6 +163,9 @@ public class JointCraftingStation : MonoBehaviour
 
         UpdateVisualBudsInJar();
         Debug.Log("Minigame started! Step 1: Click the jar lid to remove it.");
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
     }
 
     // Master click handler - attach this to 3D colliders or call via Raycast
@@ -241,8 +247,10 @@ public class JointCraftingStation : MonoBehaviour
                 break;
 
             case CraftingStep.RollJoint:
-                // Handled in Update() via mouse drag!
-                Debug.Log("Hold Left Click and drag UP steadily to roll the joint!");
+                if (objectTag == "FilledPaperOnTray")
+                {
+                    StartCoroutine(FinishJointRoutine());
+                }
                 break;
         }
     }
@@ -293,7 +301,8 @@ public class JointCraftingStation : MonoBehaviour
         // Spawn finished joint
         if (finishedJointPrefab != null && jointSpawnPoint != null)
         {
-            Instantiate(finishedJointPrefab, jointSpawnPoint.position, jointSpawnPoint.rotation);
+            GameObject minFardigaJoint = Instantiate(finishedJointPrefab, jointSpawnPoint.position, jointSpawnPoint.rotation);
+            minFardigaJoint.SetActive(true); // Här tvingar vi den att slås på och bli synlig!
         }
 
         // Play character cheer sound!
@@ -313,6 +322,9 @@ public class JointCraftingStation : MonoBehaviour
         if (craftingCamera != null) craftingCamera.SetActive(false);
         if (mainCamera != null) mainCamera.SetActive(true);
         foreach (var script in playerScriptsToDisable) if (script != null) script.enabled = true;
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
 
         ResetStationVisuals();
     }

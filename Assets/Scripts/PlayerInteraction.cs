@@ -63,7 +63,7 @@ public class PlayerInteraction : MonoBehaviour
         {
             if (Physics.Raycast(ray, out hit, interactRange))
             {
-                if (hit.collider.CompareTag("Interactable") || hit.collider.CompareTag("door") || hit.collider.CompareTag("lightswitch"))
+                if (hit.collider.CompareTag("Interactable") || hit.collider.CompareTag("Door") || hit.collider.CompareTag("lightswitch"))
                 {
                     isLookingAtInteractable = true;
                     interactableObject = hit.collider.gameObject;
@@ -123,13 +123,26 @@ public class PlayerInteraction : MonoBehaviour
             }
         }
 
-        // VÄNSTERKLICK för att använda/dricka
-        if (Input.GetMouseButtonDown(0) && heldObject != null)
+        // VÄNSTERKLICK för att använda/dricka ELLER klicka på minispel
+        if (Input.GetMouseButtonDown(0))
         {
-            ConsumableItem consumable = heldObject.GetComponent<ConsumableItem>();
-            if (consumable != null)
+            // Om vi håller i en öl, drick den!
+            if (heldObject != null)
             {
-                StartCoroutine(ConsumeRoutine(consumable));
+                ConsumableItem consumable = heldObject.GetComponent<ConsumableItem>();
+                if (consumable != null)
+                {
+                    StartCoroutine(ConsumeRoutine(consumable));
+                }
+            }
+            // Annars, om vi kollar på burken/locket/grindern (crosshair är rött)
+            else if (isLookingAtInteractable && interactableObject != null)
+            {
+                CraftingClickable clickable = interactableObject.GetComponent<CraftingClickable>();
+                if (clickable != null)
+                {
+                    clickable.DoClick(); // Säg åt föremålet att det blev klickat på!
+                }
             }
         }
     }
