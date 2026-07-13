@@ -70,13 +70,18 @@ public class JointCraftingStation : MonoBehaviour
     public AudioClip characterCheerSound;
 
     private int scrollCount = 0;
+    private Vector3 originalJarPos;
     private Quaternion originalJarRot;
     private Quaternion originalGrinderBottomRot;
 
     void Start()
     {
         // Save original rotations to reset them later
-        if (jar != null) originalJarRot = jar.localRotation;
+        if (jar != null)
+        {
+            originalJarPos = jar.localPosition;
+            originalJarRot = jar.localRotation;
+        }
         if (grinderBottom != null) originalGrinderBottomRot = grinderBottom.localRotation;
 
         ResetStationVisuals();
@@ -85,6 +90,17 @@ public class JointCraftingStation : MonoBehaviour
     void Update()
     {
         if (!isMinigameActive) return;
+
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            ExitMinigame();
+            return;
+        }
+
+        {
+            Debug.Log("Exiting minigame early via ESC key.");
+            ExitMinigame();
+        }
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
@@ -97,7 +113,7 @@ public class JointCraftingStation : MonoBehaviour
             {
                 scrollCount++;
                 // Rotate grinder lid visually for feedback
-                grinderLid.Rotate(Vector3.up * 30f, Space.Self);
+                grinderLid.Rotate(Vector3.up * 30f, Space.World);
 
                 if (audioSource != null && grindScrollSound != null && !audioSource.isPlaying)
                 {
@@ -269,7 +285,8 @@ public class JointCraftingStation : MonoBehaviour
         budOnTray.SetActive(true);
 
         // Return jar to normal position
-        yield return StartCoroutine(MoveTransform(jar, jar.parent.position, originalJarRot, 0.4f));
+        Vector3 jarHomePos = new Vector3(-0.2214f, 0.01630974f, 0.1246f);
+        yield return StartCoroutine(MoveTransformLocal(jar, jarHomePos, Quaternion.identity, 0.4f));
 
         currentStep = CraftingStep.PutBudInGrinder;
         Debug.Log("Step 3: Click the bud on the tray to put it into the grinder.");
@@ -375,5 +392,24 @@ public class JointCraftingStation : MonoBehaviour
         }
         target.position = toPos;
         target.rotation = toRot;
+    }
+
+    //Function to move stuff in the local space
+    IEnumerator MoveTransformLocal(Transform target, Vector3 toLocalPos, Quaternion toLocalRot, float duration)
+    {
+        Vector3 startPos = target.localPosition;
+        Quaternion startRot = target.localRotation;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float percent = Mathf.SmoothStep(0f, 1f, elapsed / duration);
+            target.localPosition = Vector3.Lerp(startPos, toLocalPos, percent);
+            target.localRotation = Quaternion.Lerp(startRot, toLocalRot, percent);
+            yield return null;
+        }
+        target.localPosition = toLocalPos;
+        target.localRotation = toLocalRot;
     }
 }
