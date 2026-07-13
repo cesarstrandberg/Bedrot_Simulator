@@ -91,17 +91,18 @@ public class JointCraftingStation : MonoBehaviour
     {
         if (!isMinigameActive) return;
 
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            ExitMinigame();
-            return;
-        }
+       
+        //if (Input.GetKeyDown(KeyCode.Escape))
+        //{
+        //    ExitMinigame();
+        //    return;
+        //}
 
-        {
-            Debug.Log("Exiting minigame early via ESC key.");
-            ExitMinigame();
-        }
-
+        //{
+        //    Debug.Log("Exiting minigame early via ESC key.");
+        //    ExitMinigame();
+        //}
+        //
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 

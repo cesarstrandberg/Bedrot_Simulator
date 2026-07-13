@@ -6,6 +6,9 @@ public class ConsumableItem : MonoBehaviour
     public float thirstRestore = 25f;
     public float hungerRestore = 0f;
 
+    [Header("Type of consumable")]
+    public bool isJoint = false;
+
     [Header("Post-Consume Settings")]
     public bool destroyOnConsume = false;
 

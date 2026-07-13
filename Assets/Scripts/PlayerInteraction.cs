@@ -5,6 +5,7 @@ using UnityEngine.UI;
 public class PlayerInteraction : MonoBehaviour
 {
     [Header("Interaction Settings")]
+    public Transform armRoot2;
     public Transform generalHoldPoint;
     public Vector3 generalItemRotation = new Vector3(-90f, 0f, 0f);
     public float interactRange = 3f;
@@ -228,7 +229,34 @@ public class PlayerInteraction : MonoBehaviour
         isConsuming = true;
 
         // ========================================================
-        // STEG 1: ÖPPNA FLASKAN DIREKT
+        // VÄXLARE: VILKEN ARM OCH VILKA VÄRDEN SKA VI ANVÄNDA?
+        // ========================================================
+        Transform activeArm = armRoot;                 // Standard är ölens arm
+        Vector3 targetPosOffset = drinkPositionOffset; // Standard är ölens position
+        Vector3 targetRotOffset = drinkRotationOffset; // Standard är ölens rotation
+        float speed = moveSpeed;                       // Standard är ölens hastighet
+
+        // Om vi har kryssat i "isJoint" i Inspectorn och har lagt in en andra arm:
+        if (consumable.isJoint && armRoot2 != null)
+        {
+            activeArm = armRoot2;
+            targetPosOffset = consumable.mouthOffset;
+            targetRotOffset = consumable.mouthRotation;
+            speed = consumable.consumeDuration;
+
+            // Se till att ölens arm döljs och jointens arm visas
+            if (armRoot != null) armRoot.gameObject.SetActive(false);
+            activeArm.gameObject.SetActive(true);
+        }
+        else
+        {
+            // Det är en öl, se till att ölens arm visas
+            if (armRoot2 != null) armRoot2.gameObject.SetActive(false);
+            if (armRoot != null) armRoot.gameObject.SetActive(true);
+        }
+
+        // ========================================================
+        // STEG 1: ÖPPNA FLASKAN ELLER TÄND JOINTEN
         // ========================================================
         if (consumable.visualWithCap != null && consumable.visualWithCap.activeSelf)
         {
@@ -243,6 +271,7 @@ public class PlayerInteraction : MonoBehaviour
                 consumable.visualWithoutCap.SetActive(true);
             }
 
+            // Detta körs bara för ölen (eftersom jointen inte har någon capPrefab)
             if (consumable.capPrefab != null)
             {
                 Vector3 spawnPos = holdPoint.position - new Vector3(0f, 0.2f, 0f);
@@ -260,69 +289,70 @@ public class PlayerInteraction : MonoBehaviour
         }
 
         // ========================================================
-        // STEG 2: FLYTTA HELA ARMEN UPP TILL MUNNEN
+        // STEG 2: FLYTTA AKTIV ARM UPP TILL MUNNEN
         // ========================================================
-        Vector3 startPos = armRoot.localPosition;
-        Quaternion startRot = armRoot.localRotation;
+        Vector3 startPos = activeArm.localPosition;
+        Quaternion startRot = activeArm.localRotation;
 
-        Vector3 targetPos = startPos + drinkPositionOffset;
-        Quaternion targetRot = startRot * Quaternion.Euler(drinkRotationOffset);
+        // Här använder vi variablerna som bestämdes i "Växlaren"
+        Vector3 targetPos = startPos + targetPosOffset;
+        Quaternion targetRot = startRot * Quaternion.Euler(targetRotOffset);
 
         float elapsed = 0f;
 
-        while (elapsed < moveSpeed)
+        while (elapsed < speed)
         {
             elapsed += Time.deltaTime;
-            
-            //Makes it so that the movement gets a soft start and soft stop
-            float rawPercent = elapsed / moveSpeed;
+
+            float rawPercent = elapsed / speed;
             float smoothPercent = Mathf.SmoothStep(0f, 1f, rawPercent);
 
-            //Calculate the position
             Vector3 currentPos = Vector3.Lerp(startPos, targetPos, smoothPercent);
-
-            //Fake roation! makes the arm swing downwords in the middle of the movemenet
-            //So that it feels like the rotatuion bends (Change from 0.05 for more or less swing)
             currentPos.y -= Mathf.Sin(smoothPercent * Mathf.PI) * 0.05f;
 
-            armRoot.localPosition = currentPos;
-            armRoot.localRotation = Quaternion.Lerp(startRot, targetRot, smoothPercent);
+            activeArm.localPosition = currentPos;
+            activeArm.localRotation = Quaternion.Lerp(startRot, targetRot, smoothPercent);
 
             yield return null;
+        }
+
+        // NYTT: Lägg till drick/bloss-ljud när den når munnen!
+        if (consumable.drinkSound != null && playerAudio != null)
+        {
+            playerAudio.PlayOneShot(consumable.drinkSound);
         }
 
         yield return new WaitForSeconds(2.6f);
 
         // ========================================================
-        // STEG 3: FÖR TILLBAKA ARMEN & RAPA
+        // STEG 3: FÖR TILLBAKA ARMEN & RAPA / ANDAS UT
         // ========================================================
         elapsed = 0f;
-        while (elapsed < moveSpeed)
+        while (elapsed < speed)
         {
             elapsed += Time.deltaTime;
-            float rawPercent = elapsed / moveSpeed;
+            float rawPercent = elapsed / speed;
             float smoothPercent = Mathf.SmoothStep(0f, 1f, rawPercent);
 
             Vector3 currentPos = Vector3.Lerp(targetPos, startPos, smoothPercent);
-            currentPos.y -= Mathf.Sin(smoothPercent * Mathf.PI) * 0.05f; // Samma sving på väg ner
+            currentPos.y -= Mathf.Sin(smoothPercent * Mathf.PI) * 0.05f;
 
-            armRoot.localPosition = currentPos;
-            armRoot.localRotation = Quaternion.Lerp(targetRot, startRot, smoothPercent);
+            activeArm.localPosition = currentPos;
+            activeArm.localRotation = Quaternion.Lerp(targetRot, startRot, smoothPercent);
 
             yield return null;
         }
 
-        // Tvinga armen att sitta helt perfekt efteråt
-        armRoot.localPosition = startPos;
-        armRoot.localRotation = startRot;
+        activeArm.localPosition = startPos;
+        activeArm.localRotation = startRot;
 
-        if(consumable.burpSound != null && playerAudio != null)
+        if (consumable.burpSound != null && playerAudio != null)
         {
             playerAudio.PlayOneShot(consumable.burpSound);
         }
 
         // ========================================================
-        // STEG 4: SLÄPP DEN TOMMA FLASKAN & GÖM ARMEN
+        // STEG 4: SLÄPP DEN TOMMA FLASKAN/JOINTEN & GÖM ARMEN
         // ========================================================
         if (consumable.destroyOnConsume)
         {
@@ -339,15 +369,11 @@ public class PlayerInteraction : MonoBehaviour
             rb.isKinematic = false;
             col.enabled = true;
 
-            // Flaskan behåller sin "Interactable"-tagg så du kan ta upp den igen
             rb.AddForce(cam.transform.forward * 1f, ForceMode.Impulse);
-
-            // Men vi spränger bort Consumable-skriptet så den inte går att dricka ur!
             Destroy(emptyBottle.GetComponent<ConsumableItem>());
         }
 
-        // GÖM ARMARNA EFTER VI HAR DROPPAT DEN TOMMA FLASKAN
-        if (armRoot != null) armRoot.gameObject.SetActive(false);
+        if (activeArm != null) activeArm.gameObject.SetActive(false);
 
         isConsuming = false;
     }
