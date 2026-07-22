@@ -16,6 +16,7 @@ public class ConsumableItem : MonoBehaviour
     public AudioClip openSound;
     public AudioClip burpSound;
     public AudioClip drinkSound;
+    public GameObject exhaleSmokePrefab;
 
     [Header("Visuals & Swapping")]
     public GameObject visualWithCap;

@@ -83,7 +83,7 @@ Rigidbody:
   m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 0
-  m_CollisionDetection: 0
+  m_CollisionDetection: 1
 --- !u!114 &4081766514587530572
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -101,11 +101,13 @@ MonoBehaviour:
   isJoint: 1
   destroyOnConsume: 0
   openSound: {fileID: 0}
-  burpSound: {fileID: 0}
+  burpSound: {fileID: 8300000, guid: fc1501a8d1cdd6d4aa49d23a85598f2b, type: 3}
   drinkSound: {fileID: 8300000, guid: 80cdfbd88ccda8e468e1b208281922ff, type: 3}
+  exhaleSmokePrefab: {fileID: 6752779107630539369, guid: 0d79b1794ecb05249a7228d4becf4c36, type: 3}
   visualWithCap: {fileID: 0}
   visualWithoutCap: {fileID: 0}
   capPrefab: {fileID: 0}
+  consumedPrefab: {fileID: 0}
   consumeDuration: 0.5
   mouthOffset: {x: -0.15, y: 0, z: -0.25}
   mouthRotation: {x: -3, y: 0, z: 0}

@@ -363,6 +363,15 @@ public class PlayerInteraction : MonoBehaviour
             yield return null;
         }
 
+        // NYTT: Skapa exhale smoke prefab när armen återvänder
+        if (consumable.exhaleSmokePrefab != null)
+        {
+            Vector3 smokePos = cam.transform.position + (cam.transform.forward * 0.3f) - (cam.transform.up * 0.1f);
+            GameObject smokeCloud = Instantiate(consumable.exhaleSmokePrefab, smokePos, cam.transform.rotation);
+            smokeCloud.transform.SetParent(cam.transform);
+            Destroy(smokeCloud, 4f); // Raderar röken efter 4 sekunder så spelet inte laggar
+        }
+
         activeArm.localPosition = startPos;
         activeArm.localRotation = startRot;
 
@@ -380,20 +389,37 @@ public class PlayerInteraction : MonoBehaviour
         }
         else
         {
-            GameObject emptyBottle = heldObject;
-            emptyBottle.transform.SetParent(null);
+            // Din smarta idé: Vi kastar bara ner Wrappern som den är!
+            GameObject objectToDrop = heldObject;
+            objectToDrop.transform.SetParent(null);
 
-            Rigidbody rb = emptyBottle.GetComponent<Rigidbody>();
-            Collider col = emptyBottle.GetComponent<Collider>();
+            Rigidbody rb = objectToDrop.GetComponent<Rigidbody>();
+            Collider col = objectToDrop.GetComponent<Collider>();
 
-            rb.isKinematic = false;
-            col.enabled = true;
+            if (rb != null)
+            {
+                rb.isKinematic = false;
+                // Här är fysik-fixen så den inte åker genom golvet!
+                rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+                rb.AddForce(cam.transform.forward * 1f, ForceMode.Impulse);
+            }
 
-            rb.AddForce(cam.transform.forward * 1f, ForceMode.Impulse);
-            Destroy(emptyBottle.GetComponent<ConsumableItem>());
+            if (col != null)
+            {
+                col.enabled = true;
+            }
+
+            // Vi tar bort skriptet så man inte kan plocka upp och röka fimpen igen
+            Destroy(objectToDrop.GetComponent<ConsumableItem>());
         }
 
         if (activeArm != null) activeArm.gameObject.SetActive(false);
+
+        //Tell playerStats that we have smoke a joint
+        if (consumable.isJoint)
+        {
+            GetComponent<PlayerStats>().SmokeJoint();
+        }
 
         isConsuming = false;
     }

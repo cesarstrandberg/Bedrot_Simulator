@@ -10,6 +10,9 @@ public class PlayerMovement : MonoBehaviour
     public float jumpForce = 5f;
     private bool isCrouching = false;
 
+    [HideInInspector] 
+    public float weedSpeedModifier = 1f; //modified by PlayerStats.
+
     private Rigidbody rb;
     private CapsuleCollider col;
     private Camera cam;
@@ -74,7 +77,7 @@ public class PlayerMovement : MonoBehaviour
         isGrounded = Physics.Raycast(transform.position, Vector3.down, rayLength);
 
         // Determine speed
-        float currentSpeed = walkSpeed;
+        float currentSpeed = walkSpeed * weedSpeedModifier;
 
         if (Input.GetKey(KeyCode.LeftShift)) // Sprint
         {
