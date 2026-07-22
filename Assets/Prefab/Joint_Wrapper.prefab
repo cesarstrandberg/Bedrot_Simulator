@@ -55,8 +55,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.015145302, y: 0.012676239, z: 0.14146423}
-  m_Center: {x: -0.0007195473, y: 0.001083374, z: 0.042286873}
+  m_Size: {x: 0.014968157, y: 0.014915466, z: 0.14146423}
+  m_Center: {x: -0.00063097477, y: -0.000036239624, z: 0.042286873}
 --- !u!54 &1160115862483598090
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -102,13 +102,13 @@ MonoBehaviour:
   destroyOnConsume: 0
   openSound: {fileID: 0}
   burpSound: {fileID: 0}
-  drinkSound: {fileID: 0}
+  drinkSound: {fileID: 8300000, guid: 80cdfbd88ccda8e468e1b208281922ff, type: 3}
   visualWithCap: {fileID: 0}
   visualWithoutCap: {fileID: 0}
   capPrefab: {fileID: 0}
   consumeDuration: 0.5
-  mouthOffset: {x: -0.3, y: 0.1, z: -0.4}
-  mouthRotation: {x: -80, y: 0, z: 0}
+  mouthOffset: {x: -0.15, y: 0, z: -0.25}
+  mouthRotation: {x: -3, y: 0, z: 0}
 --- !u!1001 &4810232024338689139
 PrefabInstance:
   m_ObjectHideFlags: 0
