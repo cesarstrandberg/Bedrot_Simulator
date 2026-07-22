@@ -12,6 +12,7 @@ public class PlayerInteraction : MonoBehaviour
     public float throwForce = 15f;
     public float dropForce = 2f;
     public Transform holdPoint;
+    public Transform jointHoldPoint;
 
     [Header("UI Setings")]
     public Image crosshairImage;
@@ -157,32 +158,51 @@ public class PlayerInteraction : MonoBehaviour
         heldObjectRb.isKinematic = true;
         heldObjectCollider.enabled = false;
 
-        // Kollar om det är en öl
+        // Kollar om det är en öl eller joint
         ConsumableItem consumable = obj.GetComponent<ConsumableItem>();
 
         if (consumable != null)
         {
-            // ÖLEN: Sätts på din nuvarande, snygga arm-hållpunkt
-            heldObject.transform.SetParent(holdPoint);
-            if (armRoot != null) armRoot.gameObject.SetActive(true);
+            // VÄXLARE: Är detta jointen?
+            if (consumable.isJoint)
+            {
+                // JOINTEN: Sätts på din nya arms hållpunkt
+                heldObject.transform.SetParent(jointHoldPoint);
 
-            isHoldingGeneralItem = false; // Locks the scrool when holding a consumable item
+                // Slå på joint-armen (och se till att ölens arm är av)
+                if (armRoot != null) armRoot.gameObject.SetActive(false);
+                if (armRoot2 != null) armRoot2.gameObject.SetActive(true);
+            }
+            else
+            {
+                // ÖLEN: Sätts på din nuvarande, snygga arm-hållpunkt
+                heldObject.transform.SetParent(holdPoint);
 
-            // --- FIX FÖR ÖLEN: Vrids till (0, 0, 0) så den passar handen ---
+                // Slå på öl-armen (och se till att jointens arm är av)
+                if (armRoot2 != null) armRoot2.gameObject.SetActive(false);
+                if (armRoot != null) armRoot.gameObject.SetActive(true);
+            }
+
+            isHoldingGeneralItem = false; // Locks the scroll when holding a consumable item
+
+            // --- Både ölen och jointen ska nollställas (0, 0, 0) så de passar handen ---
             heldObject.transform.localRotation = Quaternion.identity;
         }
         else
         {
             // General Items: Applies to the floating point infront of the camera
             heldObject.transform.SetParent(generalHoldPoint);
-            // Armen förblir gömd eftersom vi inte rör armRoot här!
-            isHoldingGeneralItem = true; // Unlocks the scrool when holding a general item
+            // Båda armarna förblir gömda för vanliga prylar!
+            if (armRoot != null) armRoot.gameObject.SetActive(false);
+            if (armRoot2 != null) armRoot2.gameObject.SetActive(false);
+
+            isHoldingGeneralItem = true; // Unlocks the scroll when holding a general item
 
             // --- FIX FÖR VANLIGA PRYLAR: Vrids till den vinkel du valt (-90, 0, 0) ---
             heldObject.transform.localRotation = Quaternion.Euler(generalItemRotation);
         }
 
-        // Vi behåller localPosition för ALLA objekt
+        // Vi behåller localPosition (0, 0, 0) för ALLA objekt så de snappar perfekt
         heldObject.transform.localPosition = Vector3.zero;
 
         // --- FUNDAMENTAL ÄNDRING: Raden heldObject.transform.localRotation = Quaternion.identity; ÄR RADERAD HÄRIFRÅN ---
