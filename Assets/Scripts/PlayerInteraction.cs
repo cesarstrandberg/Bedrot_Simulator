@@ -420,6 +420,10 @@ public class PlayerInteraction : MonoBehaviour
         {
             GetComponent<PlayerStats>().SmokeJoint();
         }
+        else
+        {
+            GetComponent<PlayerStats>().DrinkBeer();
+        }
 
         isConsuming = false;
     }
