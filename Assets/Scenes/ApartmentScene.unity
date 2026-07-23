@@ -40551,9 +40551,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.Volume
   m_IsGlobal: 1
-  priority: 0
+  priority: 12
   blendDistance: 0
-  weight: 0
+  weight: 0.008
   sharedProfile: {fileID: 11400000, guid: 0769fc5996274d84c858690261aa3c47, type: 2}
 --- !u!4 &539835586
 Transform:
@@ -175952,6 +175952,8 @@ MonoBehaviour:
   highVolume: {fileID: 539835585}
   drunkLevel: 0
   playerCamera: {fileID: 1963164161}
+  pukePrefab: {fileID: 919132149155446097, guid: f905ed5a3fab66049add140881ad5a09, type: 3}
+  pukeSound: {fileID: 8300000, guid: d46acb7c31fb8cd4597c4c1cb35fb3cd, type: 3}
 --- !u!1 &7496023505038073713
 GameObject:
   m_ObjectHideFlags: 0
