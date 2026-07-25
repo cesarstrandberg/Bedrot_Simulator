@@ -1,9 +1,16 @@
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.UI;
 using System.Collections;
 
 public class PlayerStats : MonoBehaviour
 {
+    [Header("Money & Needs (0-100)")]
+    public float money = 1500f;
+    public float hunger = 0f;
+    public float thirst = 0f;
+    public float craving = 0f; // Abstinens / Sug efter weed
+
     [Header("High Effects (Weed)")]
     public float highLevel = 0f;
     public Volume highVolume;
@@ -12,9 +19,12 @@ public class PlayerStats : MonoBehaviour
     public float drunkLevel = 0f;
     public Transform playerCamera;
     public GameObject pukePrefab;
-
-    // NYTT: Lucka för ljudet!
     public AudioClip pukeSound;
+
+    [Header("Sleep & Fade UI")]
+    public Image fadeImage;
+    public float fadeDuration = 1.5f;
+    public float sleepDuration = 4f;
 
     private PlayerMovement movementScript;
     private bool hasPassedOut = false;
@@ -22,13 +32,35 @@ public class PlayerStats : MonoBehaviour
     void Start()
     {
         movementScript = GetComponent<PlayerMovement>();
+        if (fadeImage != null)
+        {
+            Color c = fadeImage.color;
+            c.a = 0f;
+            fadeImage.color = c;
+        }
     }
 
     void Update()
     {
         if (hasPassedOut) return;
 
-        // 1. WEED: Visuella effekter och slöare gång
+        // ==========================================
+        // 1. BEHOV SOM TICKAR ÖVER TID
+        // ==========================================
+        // Om highLevel är över 0 får man munchies och hungern ökar 3 gånger snabbare!
+        // Vanlig hunger ökar nu med 0.25 (tar över 6 min till max). Munchies (highLevel > 0) ökar med 1.0.
+        float hungerRate = (highLevel > 0) ? 1.0f : 0.25f;
+        hunger = Mathf.Clamp(hunger + (Time.deltaTime * hungerRate), 0f, 100f);
+
+        // Törst ökar med 0.4 (tar drygt 4 minuter till max från noll)
+        thirst = Mathf.Clamp(thirst + (Time.deltaTime * 0.4f), 0f, 100f);
+
+        // Abstinens / Sug ökar med 0.5 (tar drygt 3 minuter innan man MÅSTE röka)
+        craving = Mathf.Clamp(craving + (Time.deltaTime * 0.5f), 0f, 100f);
+
+        // ==========================================
+        // 2. WEED & ALKOHOL EFFEKTER
+        // ==========================================
         if (highVolume != null)
         {
             highVolume.weight = Mathf.Lerp(highVolume.weight, Mathf.Clamp01(highLevel), Time.deltaTime * 0.5f);
@@ -40,7 +72,6 @@ public class PlayerStats : MonoBehaviour
             movementScript.weedSpeedModifier = targetSpeed;
         }
 
-        // 2. ALKOHOL: Organiskt kameragung (Perlin Noise)
         if (drunkLevel > 0 && playerCamera != null)
         {
             float swayAmount = 4f * drunkLevel;
@@ -57,24 +88,33 @@ public class PlayerStats : MonoBehaviour
             }
         }
 
-        // 3. KOLLA OM VI SKA DÄCKA
-        if (drunkLevel >= 1.0f || highLevel >= 1.05f)
+        // 3. KOLLA OM VI SKA DÄCKA (Av fylla, weed, hunger eller törst!)
+        if (drunkLevel >= 1.0f || highLevel >= 1.05f || thirst >= 100f)
         {
             StartCoroutine(PassOutSequence());
         }
     }
 
-    public void SmokeJoint() { highLevel += 0.35f; }
-    public void DrinkBeer() { drunkLevel += 0.2f; }
+    public void SmokeJoint()
+    {
+        highLevel += 0.35f;
+        craving = 0f; // NYTT: Abstinensen nollställs direkt när man tar en holk!
+        Debug.Log("Joint rökt! Craving nollställd.");
+    }
 
-    // ==========================================
-    // SEKVENS: YRSEL (5s), FALL PÅ KNÄ, SPYA, SOVA
-    // ==========================================
+    public void DrinkBeer()
+    {
+        drunkLevel += 0.2f;
+        thirst = Mathf.Clamp(thirst - 25f, 0f, 100f); // NYTT: En kall bärs släcker törsten med 25%!
+        Debug.Log("Öl drucken! Törst minskad.");
+    }
+
+    // ========================================================
+    // SEKVENS: YRSEL, FALL, SPYA, SIDLÄNGES, FADE & SOV
+    // ========================================================
     IEnumerator PassOutSequence()
     {
         hasPassedOut = true;
-        Debug.Log("Däckar... Tappar balansen completely!");
-
         if (movementScript != null) movementScript.enabled = false;
 
         MouseLook mouseLook = playerCamera.GetComponent<MouseLook>();
@@ -83,27 +123,17 @@ public class PlayerStats : MonoBehaviour
         Vector3 originalCamPos = playerCamera.localPosition;
         Quaternion originalCamRot = playerCamera.localRotation;
 
-        // ========================================================
-        // FAS 1: KÄMPA EMOT & YRSEL (5 SEKUNDER)
-        // Gubben tittar ner, rycker upp, och tappar kontrollen
-        // ========================================================
         float dizzynessTime = 0f;
         float dizzynessDuration = 5.0f;
 
         while (dizzynessTime < dizzynessDuration)
         {
-            // Hur långt i sekvensen är vi? (Går från 0 till 1)
             float progress = dizzynessTime / dizzynessDuration;
-
-            // Skapa galet, sjukt skak som blir mer intensivt mot slutet
-            float wildX = Mathf.Sin(dizzynessTime * 4f) * (20f * progress); // Nickar till / k kastar huvudet
-            float wildY = Mathf.Cos(dizzynessTime * 3f) * (30f * progress); // Svajar vilt i sidled
-            float wildZ = Mathf.Sin(dizzynessTime * 6f) * (15f * progress); // Lutar huvudet okontrollerat
-
-            // Mot slutet trycks huvudet allt mer neråt (gubben orkar inte hålla upp det)
+            float wildX = Mathf.Sin(dizzynessTime * 4f) * (20f * progress);
+            float wildY = Mathf.Cos(dizzynessTime * 3f) * (30f * progress);
+            float wildZ = Mathf.Sin(dizzynessTime * 6f) * (15f * progress);
             float downwardDroop = Mathf.Lerp(0f, 40f, progress);
 
-            // Applicera rörelsen på kameran
             Quaternion targetDizzyRot = Quaternion.Euler(originalCamRot.eulerAngles.x + downwardDroop + wildX, originalCamRot.eulerAngles.y + wildY, wildZ);
             playerCamera.localRotation = Quaternion.Slerp(playerCamera.localRotation, targetDizzyRot, Time.deltaTime * 5f);
 
@@ -111,16 +141,12 @@ public class PlayerStats : MonoBehaviour
             yield return null;
         }
 
-        // ========================================================
-        // FAS 2: FALL NER PÅ KNÄ
-        // ========================================================
-        Debug.Log("Faller ner på knä!");
         float elapsedTime = 0f;
         float fallDuration = 1.0f;
 
         Vector3 startPos = playerCamera.localPosition;
         Vector3 kneePos = new Vector3(startPos.x, startPos.y - 1.0f, startPos.z);
-        Quaternion kneeRot = Quaternion.Euler(75f, 0f, 0f); // Tittar ner i marken
+        Quaternion kneeRot = Quaternion.Euler(75f, 0f, 0f);
 
         while (elapsedTime < fallDuration)
         {
@@ -132,49 +158,29 @@ public class PlayerStats : MonoBehaviour
         playerCamera.localPosition = kneePos;
         playerCamera.localRotation = kneeRot;
 
-        // ========================================================
-        // FAS 3: SPYA OCH LJUD!
-        // ========================================================
         yield return new WaitForSeconds(0.3f);
 
         if (pukePrefab != null)
         {
             RaycastHit hit;
             Vector3 spawnPos;
-
             if (Physics.Raycast(playerCamera.position, playerCamera.forward, out hit, 3f))
-            {
                 spawnPos = hit.point + new Vector3(0f, 0.01f, 0f);
-            }
             else
-            {
                 spawnPos = playerCamera.position + playerCamera.forward * 0.8f - new Vector3(0f, 0.5f, 0f);
-            }
 
-            // NYTT: Rotera modellen 90 grader så den ligger platt mot marken!
-            // (Blir det upp-och-ner, byt 90f till -90f)
-            Quaternion flatRotation = Quaternion.Euler(-90f, playerCamera.eulerAngles.y, 0f);
+            Quaternion flatRotation = Quaternion.Euler(90f, playerCamera.eulerAngles.y, 0f);
             Instantiate(pukePrefab, spawnPos, flatRotation);
 
-            // NYTT: Spela upp spyljudet exakt där pölen landar!
-            if (pukeSound != null)
-            {
-                AudioSource.PlayClipAtPoint(pukeSound, spawnPos, 1.0f);
-            }
+            if (pukeSound != null) AudioSource.PlayClipAtPoint(pukeSound, spawnPos, 1.0f);
         }
-        Debug.Log("BLEEEH! Spypöl skapad.");
 
-        yield return new WaitForSeconds(1.5f); // Stirra på spyan och må dåligt
+        yield return new WaitForSeconds(1.5f);
 
-        // ========================================================
-        // FAS 4: FALL SIDLÄNGES NER I PÖLEN & SOV
-        // ========================================================
-        Debug.Log("Fall sidlänges ner i sörjan...");
         elapsedTime = 0f;
         float sleepFallDuration = 1.0f;
-
         Vector3 floorPos = new Vector3(kneePos.x, kneePos.y - 0.4f, kneePos.z);
-        Quaternion floorRot = Quaternion.Euler(15f, 0f, 85f); // Luta huvudet 85 grader sidlänges
+        Quaternion floorRot = Quaternion.Euler(15f, 0f, 85f);
 
         while (elapsedTime < sleepFallDuration)
         {
@@ -183,16 +189,69 @@ public class PlayerStats : MonoBehaviour
             elapsedTime += Time.deltaTime;
             yield return null;
         }
+        playerCamera.localPosition = floorPos;
+        playerCamera.localRotation = floorRot;
 
-        // ========================================================
-        // FAS 5: SOV I NÅGRA SEKUNDER & VAKNA UPP
-        // ========================================================
-        Debug.Log("Sover zzzZZZzzz... (Väntar 6 sekunder)");
-        yield return new WaitForSeconds(6f);
+        elapsedTime = 0f;
+        if (fadeImage != null)
+        {
+            Color imgColor = fadeImage.color;
+            while (elapsedTime < fadeDuration)
+            {
+                elapsedTime += Time.deltaTime;
+                imgColor.a = Mathf.Lerp(0f, 1f, elapsedTime / fadeDuration);
+                fadeImage.color = imgColor;
+                playerCamera.localPosition = floorPos;
+                playerCamera.localRotation = floorRot;
+                yield return null;
+            }
+            imgColor.a = 1f;
+            fadeImage.color = imgColor;
+        }
 
-        Debug.Log("Vaknar upp igen!");
+        float sleepTimer = 0f;
+        while (sleepTimer < sleepDuration)
+        {
+            sleepTimer += Time.deltaTime;
+            playerCamera.localPosition = floorPos;
+            playerCamera.localRotation = floorRot;
+            yield return null;
+        }
+
+        // Nollställ allt efter man däckat!
         drunkLevel = 0f;
         highLevel = 0f;
+        thirst = 0f;
+        hunger = 30f; // Vakna upp lite hungrig
+        craving = 0f;
+
+        elapsedTime = 0f;
+        if (fadeImage != null)
+        {
+            Color imgColor = fadeImage.color;
+            while (elapsedTime < fadeDuration)
+            {
+                elapsedTime += Time.deltaTime;
+                imgColor.a = Mathf.Lerp(1f, 0f, elapsedTime / fadeDuration);
+                fadeImage.color = imgColor;
+                playerCamera.localPosition = floorPos;
+                playerCamera.localRotation = floorRot;
+                yield return null;
+            }
+            imgColor.a = 0f;
+            fadeImage.color = imgColor;
+        }
+
+        elapsedTime = 0f;
+        float standUpDuration = 1.5f;
+        while (elapsedTime < standUpDuration)
+        {
+            elapsedTime += Time.deltaTime;
+            float percent = Mathf.SmoothStep(0f, 1f, elapsedTime / standUpDuration);
+            playerCamera.localPosition = Vector3.Lerp(floorPos, originalCamPos, percent);
+            playerCamera.localRotation = Quaternion.Slerp(floorRot, originalCamRot, percent);
+            yield return null;
+        }
 
         playerCamera.localPosition = originalCamPos;
         playerCamera.localRotation = originalCamRot;

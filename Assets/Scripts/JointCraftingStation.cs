@@ -74,6 +74,10 @@ public class JointCraftingStation : MonoBehaviour
     private Quaternion originalJarRot;
     private Quaternion originalGrinderBottomRot;
 
+    //Variables to remember the lids startPosition
+    private Vector3 originalJarLidPos;
+    private Quaternion originalJarLidRot;
+
     void Start()
     {
         // Save original rotations to reset them later
@@ -82,6 +86,14 @@ public class JointCraftingStation : MonoBehaviour
             originalJarPos = jar.localPosition;
             originalJarRot = jar.localRotation;
         }
+
+        if(jarLid != null) 
+        {
+            originalJarLidPos = jarLid.localPosition;
+            originalJarLidRot = jarLid.localRotation;
+        }
+        
+
         if (grinderBottom != null) originalGrinderBottomRot = grinderBottom.localRotation;
 
         ResetStationVisuals();
@@ -366,6 +378,12 @@ public class JointCraftingStation : MonoBehaviour
         if (grindedWeedInGrinder != null) grindedWeedInGrinder.SetActive(false);
         if (emptyPaperOnTray != null) emptyPaperOnTray.SetActive(false);
         if (filledPaperOnTray != null) filledPaperOnTray.SetActive(false);
+
+        if(jarLid != null)
+        {
+            jarLid.localPosition = originalJarLidPos;
+            jarLid.localRotation = originalJarLidRot;
+        }
     }
 
     void PlaySound(AudioClip clip)

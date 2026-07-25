@@ -413,7 +413,11 @@ public class PlayerInteraction : MonoBehaviour
             Destroy(objectToDrop.GetComponent<ConsumableItem>());
         }
 
-        if (activeArm != null) activeArm.gameObject.SetActive(false);
+        if (activeArm != null)
+        {
+            activeArm.gameObject.SetActive(false);
+            activeArm = null;
+        }
 
         //Tell playerStats that we have smoke a joint
         if (consumable.isJoint)
