@@ -222,6 +222,7 @@ public class PlayerInteraction : MonoBehaviour
 
         // GÖM ARMARNA
         if (armRoot != null) armRoot.gameObject.SetActive(false);
+        if(armRoot2 != null) armRoot2.gameObject.SetActive(false);
 
         isHoldingGeneralItem = false;
     }

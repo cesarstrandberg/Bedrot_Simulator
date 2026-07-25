@@ -165,11 +165,11 @@ public class PlayerStats : MonoBehaviour
             RaycastHit hit;
             Vector3 spawnPos;
             if (Physics.Raycast(playerCamera.position, playerCamera.forward, out hit, 3f))
-                spawnPos = hit.point + new Vector3(0f, 0.01f, 0f);
+                spawnPos = hit.point + new Vector3(0f, 0.05f, 0f);
             else
                 spawnPos = playerCamera.position + playerCamera.forward * 0.8f - new Vector3(0f, 0.5f, 0f);
 
-            Quaternion flatRotation = Quaternion.Euler(90f, playerCamera.eulerAngles.y, 0f);
+            Quaternion flatRotation = Quaternion.Euler(-90f, playerCamera.eulerAngles.y, 0f);
             Instantiate(pukePrefab, spawnPos, flatRotation);
 
             if (pukeSound != null) AudioSource.PlayClipAtPoint(pukeSound, spawnPos, 1.0f);
