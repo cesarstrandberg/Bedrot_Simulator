@@ -2,11 +2,15 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Collections;
+using System.Text.RegularExpressions;
 
 public class UniversityPortal : MonoBehaviour
 {
     [Header("Player Reference")]
     public PlayerStats playerStats; // För CSN-utbetalning!
+
+    [Header("Syntax Highlighting")]
+    public TMP_Text syntaxText;
 
     [Header("UI Panels")]
     public GameObject loginPage;
@@ -156,7 +160,7 @@ public class UniversityPortal : MonoBehaviour
         else
             currentTargetCode = java2Exams[Random.Range(0, java2Exams.Length)];
 
-        if (targetCodeText != null) targetCodeText.text = currentTargetCode;
+        if (targetCodeText != null) targetCodeText.text = ApplySyntaxHighlighting(currentTargetCode);
 
         currentTime = timeLimit;
         isExamActive = true;
@@ -182,6 +186,11 @@ public class UniversityPortal : MonoBehaviour
             }
         }
         lastInputText = currentText;
+
+        if(syntaxText != null)
+        {
+            syntaxText.text = ApplySyntaxHighlighting(currentText);
+        }
     }
 
     
@@ -322,6 +331,41 @@ public class UniversityPortal : MonoBehaviour
         dashboardPage.SetActive(false);
         loginPage.SetActive(true);
         if (urlBarText != null) urlBarText.text = "http://stockholmshogskola.se/login";
+    }
+
+    string ApplySyntaxHighlighting(string rawText)
+    {
+        if (string.IsNullOrEmpty(rawText)) return "";
+
+        string coloredText = rawText;
+
+        // Färgkoder för LJUS bakgrund (VS Code Light / Eclipse)
+        string keywordColor = "#0000FF"; // Mörkblå
+        string classColor = "#2B91AF";   // Mörk turkos
+        string stringColor = "#A31515";  // Mörkröd
+        string numberColor = "#098658";  // Mörkgrön (skarp och tydlig på vit bakgrund)
+
+        // 1. Färglägg allt som står inom citationstecken (Strings)
+        coloredText = Regex.Replace(coloredText, "(\".*?\")", $"<color={stringColor}>$1</color>");
+
+        // 2. Färglägg siffror
+        coloredText = Regex.Replace(coloredText, @"\b(\d+)\b", $"<color={numberColor}>$1</color>");
+
+        // 3. Färglägg Java-nyckelord (Blå)
+        string[] keywords = { "public", "private", "class", "static", "void", "int", "boolean", "if", "else", "return", "import", "new", "true", "false", "for", "while" };
+        foreach (string kw in keywords)
+        {
+            coloredText = Regex.Replace(coloredText, $@"\b({kw})\b", $"<color={keywordColor}>$1</color>");
+        }
+
+        // 4. Färglägg Java-klasser och system-ord (Turkos)
+        string[] classes = { "String", "System", "Scanner", "Node", "Math", "out" };
+        foreach (string cls in classes)
+        {
+            coloredText = Regex.Replace(coloredText, $@"\b({cls})\b", $"<color={classColor}>$1</color>");
+        }
+
+        return coloredText;
     }
 
 }

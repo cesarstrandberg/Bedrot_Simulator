@@ -23,7 +23,7 @@ public class MouseLook : MonoBehaviour
 
     [Header("Lean Settings (Q)")]
     private Vector3 defaultLocalPos;
-    public Vector3 leanOffset = new Vector3(0f, -0.4f, 2.5f);
+    public Vector3 leanOffset = new Vector3(0f, -0.4f, 1.5f);
 
     void Start()
     {

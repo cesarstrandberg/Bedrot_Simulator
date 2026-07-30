@@ -3,6 +3,11 @@ using UnityEngine;
 
 public class ComputerStation : MonoBehaviour
 {
+
+    [Header("Player Positioning")]
+    public Transform playerBody;
+    public Transform StandPosition;
+
     [Header("Current State")]
     public bool isAtPC = false;
 
@@ -79,6 +84,16 @@ public class ComputerStation : MonoBehaviour
     public void ExitPC()
     {
         isAtPC = false;
+
+        if(playerBody != null && StandPosition != null)
+        {
+            playerBody.position = StandPosition.position;
+        }
+
+        {
+            playerBody.position = StandPosition.position;
+            playerBody.rotation = StandPosition.rotation;
+        }
 
         if (pcMonitorCanvas != null) pcMonitorCanvas.SetActive(false);
         if (pcCamera != null) pcCamera.SetActive(false);
