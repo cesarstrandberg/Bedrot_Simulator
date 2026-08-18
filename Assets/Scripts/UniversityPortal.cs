@@ -284,6 +284,26 @@ public class UniversityPortal : MonoBehaviour
     // ==========================================
     // 5. TILLBAKA TILL PORTALEN
     // ==========================================
+
+    // Tillbaka: Instruktioner -> Dashboard (ett steg bakåt)
+    public void BackFromInstructions()
+    {
+        PlayClick();
+        instructionsPage.SetActive(false);
+        dashboardPage.SetActive(true);
+        if (urlBarText != null) urlBarText.text = "http://stockholmshogskola.se/portal/dashboard";
+    }
+
+    // Tillbaka: Aktiv tenta -> Instruktioner (ett steg bakåt, avbryter tentan utan betygsättning)
+    public void BackFromExam()
+    {
+        PlayClick();
+        isExamActive = false;
+        examPage.SetActive(false);
+        instructionsPage.SetActive(true);
+        if (urlBarText != null) urlBarText.text = "http://stockholmshogskola.se/portal/exam-instructions";
+    }
+
     public void ReturnToDashboard()
     {
         PlayClick();

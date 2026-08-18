@@ -63,6 +63,30 @@ public class WebBrowser : MonoBehaviour
         PerformSearch();
     }
 
+    // Denna kopplar vi till din bakåt-pil (<) högst upp i Top_Nav_Bar.
+    // Går ETT steg bakåt oavsett vilken sida som är öppen just nu.
+    public void GoBack()
+    {
+        // Dealer-sidan är öppen -> ett steg bakåt är Giggle-sökningen
+        if (drugSite != null && drugSite.gameObject.activeSelf)
+        {
+            GoToSearchPage();
+            return;
+        }
+
+        UniversityPortal portal = GetComponent<UniversityPortal>();
+        if (portal != null)
+        {
+            if (portal.resultPage != null && portal.resultPage.activeSelf) { portal.ReturnToDashboard(); return; }
+            if (portal.examPage != null && portal.examPage.activeSelf) { portal.BackFromExam(); return; }
+            if (portal.instructionsPage != null && portal.instructionsPage.activeSelf) { portal.BackFromInstructions(); return; }
+            if (portal.dashboardPage != null && portal.dashboardPage.activeSelf) { portal.LogOutToLogin(); return; }
+            if (portal.loginPage != null && portal.loginPage.activeSelf) { portal.ExitPortalToGoogle(); return; }
+        }
+
+        // Redan på Giggle-sökningen (roten) - inget mer att gå tillbaka till.
+    }
+
     // Denna kopplar vi till din bakåt-pil (<) högst upp
     public void GoToSearchPage()
     {
