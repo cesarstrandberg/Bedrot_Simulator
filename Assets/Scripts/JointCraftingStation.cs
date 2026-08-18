@@ -38,8 +38,7 @@ public class JointCraftingStation : MonoBehaviour
     public GameObject budOnTray;
 
     [Header("Empty Jar")]
-    public GameObject emptyWeedJarPrefab; // Spawned once the jar runs out of buds
-    public Transform emptyWeedJarSpawnPos;
+    public Transform emptyWeedJarSpawnPos; // Where the jar itself relocates to once it runs out of buds
 
     [Header("Grinder References")]
     public GameObject budInGrinder;
@@ -74,6 +73,7 @@ public class JointCraftingStation : MonoBehaviour
     public AudioClip characterCheerSound;
 
     private bool emptyJarSpawned = false;
+    private bool isTiltingJar = false;
     private int scrollCount = 0;
     private Vector3 originalJarPos;
     private Quaternion originalJarRot;
@@ -215,7 +215,7 @@ public class JointCraftingStation : MonoBehaviour
                 break;
 
             case CraftingStep.TiltJar:
-                if (objectTag == "Jar" && globalBudCount > 0)
+                if (objectTag == "Jar" && globalBudCount > 0 && !isTiltingJar)
                 {
                     StartCoroutine(TiltJarRoutine());
                 }
@@ -286,13 +286,14 @@ public class JointCraftingStation : MonoBehaviour
 
     IEnumerator TiltJarRoutine()
     {
+        isTiltingJar = true;
         PlaySound(pourBudSound);
         // Tilt jar over tray
         yield return StartCoroutine(MoveTransform(jar, jarTiltPoint.position, jarTiltPoint.rotation, 0.4f));
 
         // Decrease persistent bud count and hide one bud inside the jar
         globalBudCount--;
-        RefreshBudVisuals();
+        UpdateVisualBudsInJar();
 
         // Spawn bud on tray
         budOnTray.SetActive(true);
@@ -301,8 +302,15 @@ public class JointCraftingStation : MonoBehaviour
         Vector3 jarHomePos = new Vector3(-0.2214f, 0.01630974f, 0.1246f);
         yield return StartCoroutine(MoveTransformLocal(jar, jarHomePos, Quaternion.identity, 0.4f));
 
+        if (globalBudCount <= 0)
+        {
+            // Last bud used - the jar now travels to its empty resting spot
+            CheckJarEmpty();
+        }
+
         currentStep = CraftingStep.PutBudInGrinder;
         Debug.Log("Step 3: Click the bud on the tray to put it into the grinder.");
+        isTiltingJar = false;
     }
 
     IEnumerator PourGrinderToPaperRoutine()
@@ -384,11 +392,19 @@ public class JointCraftingStation : MonoBehaviour
         if (emptyJarSpawned || globalBudCount > 0) return;
 
         emptyJarSpawned = true;
-        if (jar != null) jar.gameObject.SetActive(false);
 
-        if (emptyWeedJarPrefab != null && emptyWeedJarSpawnPos != null)
+        if (jarLid != null && jar != null)
         {
-            Instantiate(emptyWeedJarPrefab, emptyWeedJarSpawnPos.position, emptyWeedJarSpawnPos.rotation);
+            // Snap the lid shut onto the jar (jar is at its normal, untilted resting pose here)
+            // and parent it so it travels along with the jar as one object from now on.
+            jarLid.localPosition = originalJarLidPos;
+            jarLid.localRotation = originalJarLidRot;
+            jarLid.SetParent(jar, true);
+        }
+
+        if (jar != null && emptyWeedJarSpawnPos != null)
+        {
+            StartCoroutine(MoveTransform(jar, emptyWeedJarSpawnPos.position, emptyWeedJarSpawnPos.rotation, 0.5f));
         }
     }
 
