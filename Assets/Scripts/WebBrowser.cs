@@ -6,6 +6,7 @@ public class WebBrowser : MonoBehaviour
 {
     [Header("Sidor inuti fönstret")]
     public GameObject googleSidan; // Din vita sök-sida
+    public DrugSite drugSite; // Beställningssidan för dealern
 
     [Header("Sökfält & URL")]
     public TMP_InputField searchInputField; // Ditt vit-rundade skrivfält
@@ -67,6 +68,7 @@ public class WebBrowser : MonoBehaviour
     {
         PlayClickSound();
         if (googleSidan != null) googleSidan.SetActive(true);
+        if (drugSite != null) drugSite.CloseSite();
 
         // Stäng av alla universitetssidor om de råkar vara igång
         UniversityPortal portal = GetComponent<UniversityPortal>();
@@ -99,12 +101,39 @@ public class WebBrowser : MonoBehaviour
 
             // Dölj vita Google-sidan
             if (googleSidan != null) googleSidan.SetActive(false);
+            if (drugSite != null) drugSite.CloseSite();
 
             // Hämta portal-skriptet på samma objekt och starta inloggningen!
             UniversityPortal portal = GetComponent<UniversityPortal>();
             if (portal != null)
             {
                 portal.OpenPortal();
+            }
+            return;
+        }
+
+        // KOLLA OM MAN SKREV IN DEALER-SIDAN
+        if (typedText == "darkmarket.se" || typedText == "http://darkmarket.se")
+        {
+            Debug.Log("Öppnar Darkmarket...");
+            PlayClickSound();
+
+            if (googleSidan != null) googleSidan.SetActive(false);
+
+            UniversityPortal sitePortal = GetComponent<UniversityPortal>();
+            if (sitePortal != null)
+            {
+                if (sitePortal.loginPage != null) sitePortal.loginPage.SetActive(false);
+                if (sitePortal.dashboardPage != null) sitePortal.dashboardPage.SetActive(false);
+                if (sitePortal.instructionsPage != null) sitePortal.instructionsPage.SetActive(false);
+                if (sitePortal.examPage != null) sitePortal.examPage.SetActive(false);
+                if (sitePortal.resultPage != null) sitePortal.resultPage.SetActive(false);
+            }
+
+            if (drugSite != null)
+            {
+                drugSite.OpenSite();
+                if (urlBarText != null) urlBarText.text = "http://darkmarket.se";
             }
             return;
         }
