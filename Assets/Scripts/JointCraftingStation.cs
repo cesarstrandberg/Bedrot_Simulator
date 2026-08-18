@@ -4,7 +4,7 @@ using UnityEngine;
 public class JointCraftingStation : MonoBehaviour
 {
     // Static variable keeps the bud count persistent across scenes and gamemodes!
-    public static int globalBudCount = 5;
+    public static int globalBudCount = 7;
 
     public enum CraftingStep
     {
@@ -34,8 +34,12 @@ public class JointCraftingStation : MonoBehaviour
     public Transform jarLidRestPoint;
     public Transform jar;
     public Transform jarTiltPoint; // Rotated orientation for pouring
-    public GameObject[] visualBudsInJar; // Array of bud models inside the jar to disable one by one
+    public GameObject[] visualBudsInJar; // Array of bud models inside the jar to disable one by one, in the order they should disappear (element 0 disappears first)
     public GameObject budOnTray;
+
+    [Header("Empty Jar")]
+    public GameObject emptyWeedJarPrefab; // Spawned once the jar runs out of buds
+    public Transform emptyWeedJarSpawnPos;
 
     [Header("Grinder References")]
     public GameObject budInGrinder;
@@ -69,6 +73,7 @@ public class JointCraftingStation : MonoBehaviour
     public AudioClip rollingSound;
     public AudioClip characterCheerSound;
 
+    private bool emptyJarSpawned = false;
     private int scrollCount = 0;
     private Vector3 originalJarPos;
     private Quaternion originalJarRot;
@@ -97,6 +102,7 @@ public class JointCraftingStation : MonoBehaviour
         if (grinderBottom != null) originalGrinderBottomRot = grinderBottom.localRotation;
 
         ResetStationVisuals();
+        RefreshBudVisuals();
     }
 
     void Update()
@@ -184,7 +190,7 @@ public class JointCraftingStation : MonoBehaviour
         if (mainCamera != null) mainCamera.SetActive(false);
         if (craftingCamera != null) craftingCamera.SetActive(true);
 
-        UpdateVisualBudsInJar();
+        RefreshBudVisuals();
         Debug.Log("Minigame started! Step 1: Click the jar lid to remove it.");
 
         Cursor.lockState = CursorLockMode.None;
@@ -286,7 +292,7 @@ public class JointCraftingStation : MonoBehaviour
 
         // Decrease persistent bud count and hide one bud inside the jar
         globalBudCount--;
-        UpdateVisualBudsInJar();
+        RefreshBudVisuals();
 
         // Spawn bud on tray
         budOnTray.SetActive(true);
@@ -353,15 +359,36 @@ public class JointCraftingStation : MonoBehaviour
         ResetStationVisuals();
     }
 
+    void RefreshBudVisuals()
+    {
+        UpdateVisualBudsInJar();
+        CheckJarEmpty();
+    }
+
     void UpdateVisualBudsInJar()
     {
-        // Automatically hide bud models inside the jar based on how many are left
-        for (int i = 0; i < visualBudsInJar.Length; i++)
+        // Hide bud models starting from element 0, so visualBudsInJar[0] disappears first
+        // and visualBudsInJar[Length - 1] disappears last.
+        int total = visualBudsInJar.Length;
+        for (int i = 0; i < total; i++)
         {
             if (visualBudsInJar[i] != null)
             {
-                visualBudsInJar[i].SetActive(i < globalBudCount);
+                visualBudsInJar[i].SetActive(i >= total - globalBudCount);
             }
+        }
+    }
+
+    void CheckJarEmpty()
+    {
+        if (emptyJarSpawned || globalBudCount > 0) return;
+
+        emptyJarSpawned = true;
+        if (jar != null) jar.gameObject.SetActive(false);
+
+        if (emptyWeedJarPrefab != null && emptyWeedJarSpawnPos != null)
+        {
+            Instantiate(emptyWeedJarPrefab, emptyWeedJarSpawnPos.position, emptyWeedJarSpawnPos.rotation);
         }
     }
 
