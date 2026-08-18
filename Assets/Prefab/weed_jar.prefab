@@ -587,31 +587,31 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 87965cdbeaaf12c418662f568d5a58c4, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -2.4831
+      value: -0.1084
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 87965cdbeaaf12c418662f568d5a58c4, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 10.8616
+      value: 0.6646
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 87965cdbeaaf12c418662f568d5a58c4, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 10.0684
+      value: 0.206
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 87965cdbeaaf12c418662f568d5a58c4, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 1
+      value: 0.56703025
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 87965cdbeaaf12c418662f568d5a58c4, type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0
+      value: 0.000000059604623
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 87965cdbeaaf12c418662f568d5a58c4, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0
+      value: -0.00000019371502
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 87965cdbeaaf12c418662f568d5a58c4, type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0
+      value: 0.82369703
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 87965cdbeaaf12c418662f568d5a58c4, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -623,7 +623,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 87965cdbeaaf12c418662f568d5a58c4, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
+      value: 110.913
       objectReference: {fileID: 0}
     - target: {fileID: -619180053022089999, guid: 87965cdbeaaf12c418662f568d5a58c4, type: 3}
       propertyPath: m_LocalRotation.w
@@ -644,6 +644,14 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 87965cdbeaaf12c418662f568d5a58c4, type: 3}
       propertyPath: m_Name
       value: weed_jar
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 87965cdbeaaf12c418662f568d5a58c4, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 87965cdbeaaf12c418662f568d5a58c4, type: 3}
+      propertyPath: m_TagString
+      value: Interactable
       objectReference: {fileID: 0}
     - target: {fileID: 6002161257850288416, guid: 87965cdbeaaf12c418662f568d5a58c4, type: 3}
       propertyPath: m_IsActive
