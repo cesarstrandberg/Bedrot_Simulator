@@ -82,6 +82,7 @@ public class JointCraftingStation : MonoBehaviour
     //Variables to remember the lids startPosition
     private Vector3 originalJarLidPos;
     private Quaternion originalJarLidRot;
+    private Transform originalJarLidParent;
 
     void Start()
     {
@@ -92,10 +93,11 @@ public class JointCraftingStation : MonoBehaviour
             originalJarRot = jar.localRotation;
         }
 
-        if(jarLid != null) 
+        if(jarLid != null)
         {
             originalJarLidPos = jarLid.localPosition;
             originalJarLidRot = jarLid.localRotation;
+            originalJarLidParent = jarLid.parent;
         }
         
 
@@ -181,6 +183,12 @@ public class JointCraftingStation : MonoBehaviour
     // Call this method from an interactable trigger on the table to start
     public void StartMinigame()
     {
+        if (emptyJarSpawned)
+        {
+            Debug.Log("The jar is empty! Get a new one from the dealer first.");
+            return;
+        }
+
         isMinigameActive = true;
         currentStep = CraftingStep.RemoveJarLid;
         rollProgress = 0f;
@@ -345,11 +353,23 @@ public class JointCraftingStation : MonoBehaviour
 
         // Play character cheer sound!
         PlaySound(characterCheerSound);
-        Debug.Log("JOINT ROLLED! Cheering and exiting gamemode in 2 seconds...");
+        Debug.Log("JOINT ROLLED!");
 
         yield return new WaitForSeconds(2.0f);
 
-        ExitMinigame();
+        if (globalBudCount > 0)
+        {
+            // Still got buds - go again instead of kicking the player out
+            ResetCraftingProps();
+            rollProgress = 0f;
+            currentStep = CraftingStep.TiltJar;
+            Debug.Log("Step 2: Click the jar to tilt it and get another bud out.");
+        }
+        else
+        {
+            Debug.Log("Jar's empty - exiting the crafting station.");
+            ExitMinigame();
+        }
     }
 
     public void ExitMinigame()
@@ -408,16 +428,53 @@ public class JointCraftingStation : MonoBehaviour
         }
     }
 
-    void ResetStationVisuals()
+    // Called by PlayerInteraction when the player clicks this station while holding a FilledWeedJarItem.
+    // Returns false (and does nothing) if the station doesn't need a new jar right now.
+    public bool TryPlaceHeldJar()
+    {
+        if (!emptyJarSpawned) return false;
+
+        StartCoroutine(PlaceNewJarRoutine());
+        return true;
+    }
+
+    IEnumerator PlaceNewJarRoutine()
+    {
+        // Move the jar (lid still attached from CheckJarEmpty) back to its home position
+        yield return StartCoroutine(MoveTransformLocal(jar, originalJarPos, originalJarRot, 0.5f));
+
+        // Detach the lid again so it can move independently during future tilt animations
+        if (jarLid != null)
+        {
+            jarLid.SetParent(originalJarLidParent, true);
+            jarLid.localPosition = originalJarLidPos;
+            jarLid.localRotation = originalJarLidRot;
+        }
+
+        globalBudCount = 7;
+        emptyJarSpawned = false;
+        UpdateVisualBudsInJar();
+
+        Debug.Log("New jar placed! The station is ready to use again.");
+    }
+
+    void ResetCraftingProps()
     {
         if (budOnTray != null) budOnTray.SetActive(false);
         if (budInGrinder != null) budInGrinder.SetActive(false);
         if (grindedWeedInGrinder != null) grindedWeedInGrinder.SetActive(false);
         if (emptyPaperOnTray != null) emptyPaperOnTray.SetActive(false);
         if (filledPaperOnTray != null) filledPaperOnTray.SetActive(false);
+    }
 
-        if(jarLid != null)
+    void ResetStationVisuals()
+    {
+        ResetCraftingProps();
+
+        if (jarLid != null && !emptyJarSpawned)
         {
+            // Once the jar is empty the lid is parented to it (see CheckJarEmpty) and
+            // "local" position/rotation means something different - leave it alone then.
             jarLid.localPosition = originalJarLidPos;
             jarLid.localRotation = originalJarLidRot;
         }

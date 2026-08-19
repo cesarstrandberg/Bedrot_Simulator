@@ -60,8 +60,12 @@ public class PlayerInteraction : MonoBehaviour
 
         Debug.DrawRay(ray.origin, ray.direction * interactRange, Color.red);
 
-        // 1. Kolla alltid vad lasern träffar (om händerna är tomma)
-        if (heldObject == null)
+        // A jar we're carrying to refill the rolling station is the one held item that still
+        // needs to look for interactables, so we can click the station to place it.
+        bool holdingFilledJar = heldObject != null && heldObject.GetComponent<FilledWeedJarItem>() != null;
+
+        // 1. Kolla alltid vad lasern träffar (om händerna är tomma, eller vi bär en fylld burk)
+        if (heldObject == null || holdingFilledJar)
         {
             if (Physics.Raycast(ray, out hit, interactRange))
             {
@@ -77,14 +81,14 @@ public class PlayerInteraction : MonoBehaviour
         // 2. Uppdatera crosshairets FÄRG och ALPHA baserat på vad vi tittar på
         if (crosshairImage != null)
         {
-            if (heldObject == null && isLookingAtInteractable)
+            if ((heldObject == null || holdingFilledJar) && isLookingAtInteractable)
             {
-                // Om händerna är tomma och vi kollar på en pryl/dörr: Byt till Interact-färgen
+                // Om händerna är tomma (eller vi bär burken) och vi kollar på en pryl/dörr: Byt till Interact-färgen
                 crosshairImage.color = interactColor;
             }
             else
             {
-                // Annars (om vi kollar bort eller bär något): Byt till Default-färgen
+                // Annars (om vi kollar bort eller bär något annat): Byt till Default-färgen
                 crosshairImage.color = defaultColor;
             }
         }
@@ -135,6 +139,10 @@ public class PlayerInteraction : MonoBehaviour
                 if (consumable != null)
                 {
                     StartCoroutine(ConsumeRoutine(consumable));
+                }
+                else if (holdingFilledJar && isLookingAtInteractable && interactableObject != null)
+                {
+                    TryPlaceFilledJar(interactableObject);
                 }
             }
             // Annars, om vi kollar på burken/locket/grindern (crosshair är rött)
@@ -206,6 +214,21 @@ public class PlayerInteraction : MonoBehaviour
         heldObject.transform.localPosition = Vector3.zero;
 
         // --- FUNDAMENTAL ÄNDRING: Raden heldObject.transform.localRotation = Quaternion.identity; ÄR RADERAD HÄRIFRÅN ---
+    }
+
+    void TryPlaceFilledJar(GameObject target)
+    {
+        CraftingClickable clickable = target.GetComponent<CraftingClickable>();
+        if (clickable == null || clickable.stationManager == null) return;
+
+        if (clickable.stationManager.TryPlaceHeldJar())
+        {
+            Destroy(heldObject);
+            heldObject = null;
+            heldObjectRb = null;
+            heldObjectCollider = null;
+            isHoldingGeneralItem = false;
+        }
     }
 
     void DropObject()

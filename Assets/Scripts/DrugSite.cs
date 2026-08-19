@@ -14,10 +14,10 @@ public class DrugSite : MonoBehaviour
 
     [Header("Order Settings")]
     public float price = 200f;
-    public int budsPerOrder = 5;
 
     [Header("Dealer")]
     public DealerAI dealerAI;
+    public GameObject weedJarPickupPrefab; // Spawned into the world so the player can pick it up (Assets/Prefab/weed_jar.prefab)
 
     void Start()
     {
@@ -63,11 +63,16 @@ public class DrugSite : MonoBehaviour
         if (playerStats == null) return;
 
         playerStats.money -= price;
-        JointCraftingStation.globalBudCount += budsPerOrder;
+
+        if (weedJarPickupPrefab != null && dealerAI != null && dealerAI.weedJarInHand != null)
+        {
+            GameObject spawnedJar = Instantiate(weedJarPickupPrefab, dealerAI.weedJarInHand.transform.position, dealerAI.weedJarInHand.transform.rotation);
+            spawnedJar.SetActive(true); // Guard against the prefab ever being saved disabled again
+        }
 
         if (statusText != null) statusText.text = "";
         if (orderButton != null) orderButton.interactable = true;
 
-        Debug.Log("Dealer delivered " + budsPerOrder + " buds for " + price + " kr.");
+        Debug.Log("Dealer delivered a new jar for " + price + " kr.");
     }
 }

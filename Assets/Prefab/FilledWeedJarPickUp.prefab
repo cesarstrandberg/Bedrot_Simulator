@@ -643,11 +643,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 87965cdbeaaf12c418662f568d5a58c4, type: 3}
       propertyPath: m_Name
-      value: weed_jar
+      value: FilledWeedJarPickUp
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 87965cdbeaaf12c418662f568d5a58c4, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 87965cdbeaaf12c418662f568d5a58c4, type: 3}
       propertyPath: m_TagString
@@ -806,7 +806,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa999bea522d48b4a8f8fe5b050ccf2b, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FilledWeedJarItem
 --- !u!4 &8683170491505644088 stripped
 Transform:
