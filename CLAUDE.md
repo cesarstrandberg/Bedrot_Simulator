@@ -10,7 +10,7 @@ ending — the "never-ending simulation" part is the point, same way My Summer C
 ends, it just keeps piling consequences and systems onto a small persistent space you know
 intimately.
 
-The previous project was an American Psycho dramatization (satire of a monster). This one is the
+The user (Cesar) previous project was an American Psycho dramatization (satire of a monster). This one is the
 opposite angle: an ordinary person, sympathetic at the start, who makes one bad call after another
 until he's in over his head. Tone reference: Tarantino / Reservoir Dogs — raw, dialogue-driven,
 morally messy, not sanitized, but not shock-for-shock's-sake either. Grounded over cartoonish.
@@ -19,8 +19,9 @@ morally messy, not sanitized, but not shock-for-shock's-sake either. Grounded ov
 
 Scripted intro, then it opens up into the sandbox:
 1. Player is a student attending lectures (Java programming courses, university portal exams).
-2. Intro beat: the dealer calls him (phone call), which is how he first gets pulled in. He starts
-   smoking.
+2. Intro beat: character meets classmate who gives him a joint. he getts hooked, gets dealers number. 
+
+  the dealer calls him (phone call), which is how he first gets pulled in. he starts to smoke more and more, and gets into it for real when he pays via credit / helps the dealer out in some way to get drugs. 
 3. From there the game becomes the open-ended sim: buy/craft/consume loops, needs management,
    money pressure.
 4. Planned escalation: player gets more involved in the drug business, eventually acquires a gun
