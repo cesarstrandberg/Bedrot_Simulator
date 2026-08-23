@@ -158,9 +158,13 @@ public class DealerAI : MonoBehaviour
                 transform.position = Vector3.MoveTowards(transform.position, point.position, stairMoveSpeed * Time.deltaTime);
 
                 Vector3 moveDelta = transform.position - fromPos;
-                if (moveDelta.sqrMagnitude > 0.0001f)
+
+                // Bara horisontell riktning för rotationen - annars lutar han nosen neråt i trappan
+                // istället för att gå upprätt medan kroppen glider ner/upp.
+                Vector3 flatDelta = new Vector3(moveDelta.x, 0f, moveDelta.z);
+                if (flatDelta.sqrMagnitude > 0.0001f)
                 {
-                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(moveDelta.normalized), stairTurnSpeed * Time.deltaTime);
+                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(flatDelta.normalized), stairTurnSpeed * Time.deltaTime);
                 }
 
                 if (animator != null) animator.SetFloat("Speed", moveDelta.magnitude / Time.deltaTime);

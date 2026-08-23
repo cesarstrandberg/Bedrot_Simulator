@@ -1,0 +1,13 @@
+# Blender 3.3.0 MTL File: 'Sporta di carta.blend'
+# www.blender.org
+
+newmtl Carta_Sporta
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd G:/Videoz/Lavoro/--- Template da vendere/Sporta Di Carta/--- Texture/CC0-Texture-Paper02/Paper02Albedo.png
+map_Ns G:/Videoz/Lavoro/--- Template da vendere/Sporta Di Carta/--- Texture/CC0-Texture-Paper02/Paper02Rough.png
+map_Bump -bm 1.000000 G:/Videoz/Lavoro/--- Template da vendere/Sporta Di Carta/--- Texture/CC0-Texture-Paper02/Paper02Normal.png
