@@ -27,6 +27,12 @@ public class FoodSite : MonoBehaviour
     public Button checkoutButton;
     public TextMeshProUGUI statusText;
 
+    [Header("Delivery Driver")]
+    public DeliveryDriverAI deliveryDriverAI;
+    public GameObject foodBagPickupPrefab; // Spawned into the world so the player can pick it up (Assets/Prefab/Bag.prefab)
+
+    private float pendingTotal;
+
     void Start()
     {
         foreach (FoodItem item in items)
@@ -110,11 +116,34 @@ public class FoodSite : MonoBehaviour
             return;
         }
 
-        playerStats.money -= total;
-        if (statusText != null) statusText.text = "Order placed.";
+        pendingTotal = total;
+        if (statusText != null) statusText.text = "Order placed. The driver is on their way.";
+        if (checkoutButton != null) checkoutButton.interactable = false;
 
-        Debug.Log("Food order placed for " + total + " kr.");
+        if (deliveryDriverAI != null) deliveryDriverAI.StartDelivery();
+
+        Debug.Log("Food order placed for " + total + " kr. Waiting for delivery.");
+    }
+
+    // Called by DeliveryDriverAI.Interact() when the player takes the order at the door
+    public void CompleteHandoff()
+    {
+        if (playerStats == null) return;
+
+        playerStats.money -= pendingTotal;
+        pendingTotal = 0f;
+
+        if (foodBagPickupPrefab != null && deliveryDriverAI != null && deliveryDriverAI.bagInHand != null)
+        {
+            GameObject spawnedBag = Instantiate(foodBagPickupPrefab, deliveryDriverAI.bagInHand.transform.position, deliveryDriverAI.bagInHand.transform.rotation);
+            spawnedBag.SetActive(true); // Guard against the prefab ever being saved disabled again
+        }
+
+        if (statusText != null) statusText.text = "";
+        if (checkoutButton != null) checkoutButton.interactable = true;
 
         ResetCart();
+
+        Debug.Log("Delivery driver dropped off the order.");
     }
 }
