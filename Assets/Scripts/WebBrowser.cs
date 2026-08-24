@@ -7,6 +7,7 @@ public class WebBrowser : MonoBehaviour
     [Header("Sidor inuti fönstret")]
     public GameObject googleSidan; // Din vita sök-sida
     public DrugSite drugSite; // Beställningssidan för dealern
+    public FoodSite foodSite; // Beställningssidan för snabbmat
 
     [Header("Sökfält & URL")]
     public TMP_InputField searchInputField; // Ditt vit-rundade skrivfält
@@ -74,6 +75,13 @@ public class WebBrowser : MonoBehaviour
             return;
         }
 
+        // Matsidan är öppen -> ett steg bakåt är Giggle-sökningen
+        if (foodSite != null && foodSite.gameObject.activeSelf)
+        {
+            GoToSearchPage();
+            return;
+        }
+
         UniversityPortal portal = GetComponent<UniversityPortal>();
         if (portal != null)
         {
@@ -93,6 +101,7 @@ public class WebBrowser : MonoBehaviour
         PlayClickSound();
         if (googleSidan != null) googleSidan.SetActive(true);
         if (drugSite != null) drugSite.CloseSite();
+        if (foodSite != null) foodSite.CloseSite();
 
         // Stäng av alla universitetssidor om de råkar vara igång
         UniversityPortal portal = GetComponent<UniversityPortal>();
@@ -158,6 +167,33 @@ public class WebBrowser : MonoBehaviour
             {
                 drugSite.OpenSite();
                 if (urlBarText != null) urlBarText.text = "http://darkmarket.se";
+            }
+            return;
+        }
+
+        // KOLLA OM MAN SKREV IN MATSIDAN
+        if (typedText == "snabbmat.se" || typedText == "http://snabbmat.se")
+        {
+            Debug.Log("Öppnar Snabbmat...");
+            PlayClickSound();
+
+            if (googleSidan != null) googleSidan.SetActive(false);
+            if (drugSite != null) drugSite.CloseSite();
+
+            UniversityPortal foodPortal = GetComponent<UniversityPortal>();
+            if (foodPortal != null)
+            {
+                if (foodPortal.loginPage != null) foodPortal.loginPage.SetActive(false);
+                if (foodPortal.dashboardPage != null) foodPortal.dashboardPage.SetActive(false);
+                if (foodPortal.instructionsPage != null) foodPortal.instructionsPage.SetActive(false);
+                if (foodPortal.examPage != null) foodPortal.examPage.SetActive(false);
+                if (foodPortal.resultPage != null) foodPortal.resultPage.SetActive(false);
+            }
+
+            if (foodSite != null)
+            {
+                foodSite.OpenSite();
+                if (urlBarText != null) urlBarText.text = "http://snabbmat.se";
             }
             return;
         }
