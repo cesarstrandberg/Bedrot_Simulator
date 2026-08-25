@@ -3,11 +3,14 @@ using UnityEngine;
 public class ConsumableItem : MonoBehaviour
 {
     [Header("Consumable Stats")]
-    public float thirstRestore = 25f;
+    public float thirstRestore = 25f; // Positive quenches thirst on eat/drink, negative worsens it (e.g. salty chips)
     public float hungerRestore = 0f;
 
     [Header("Type of consumable")]
     public bool isJoint = false;
+
+    // False for simple food items: no arm-raise animation, held like a general item, eaten instantly on click.
+    public bool useArmAnimation = true;
 
     [Header("Post-Consume Settings")]
     public bool destroyOnConsume = false;

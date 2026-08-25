@@ -37,6 +37,9 @@ public class PlayerInteraction : MonoBehaviour
 
     private bool isConsuming = false;
 
+    [Header("Food Bag Settings")]
+    public AudioClip bagOpenSound;
+
     void Start()
     {
         cam = GetComponent<Camera>();
@@ -135,10 +138,19 @@ public class PlayerInteraction : MonoBehaviour
             // Om vi håller i en öl, drick den!
             if (heldObject != null)
             {
+                FoodBagContents bagContents = heldObject.GetComponent<FoodBagContents>();
                 ConsumableItem consumable = heldObject.GetComponent<ConsumableItem>();
-                if (consumable != null)
+                if (bagContents != null)
+                {
+                    StartCoroutine(OpenBagRoutine(bagContents));
+                }
+                else if (consumable != null && consumable.useArmAnimation)
                 {
                     StartCoroutine(ConsumeRoutine(consumable));
+                }
+                else if (consumable != null && !consumable.useArmAnimation)
+                {
+                    StartCoroutine(EatRoutine(consumable));
                 }
                 else if (holdingFilledJar && isLookingAtInteractable && interactableObject != null)
                 {
@@ -166,10 +178,10 @@ public class PlayerInteraction : MonoBehaviour
         heldObjectRb.isKinematic = true;
         heldObjectCollider.enabled = false;
 
-        // Kollar om det är en öl eller joint
+        // Kollar om det är en öl eller joint (mat utan armanimation hålls som ett vanligt föremål istället)
         ConsumableItem consumable = obj.GetComponent<ConsumableItem>();
 
-        if (consumable != null)
+        if (consumable != null && consumable.useArmAnimation)
         {
             // VÄXLARE: Är detta jointen?
             if (consumable.isJoint)
@@ -452,6 +464,79 @@ public class PlayerInteraction : MonoBehaviour
         {
             GetComponent<PlayerStats>().DrinkBeer();
         }
+
+        isConsuming = false;
+    }
+
+    // Simple eat for food items (useArmAnimation == false): sound + stat change, no arm animation.
+    IEnumerator EatRoutine(ConsumableItem consumable)
+    {
+        isConsuming = true;
+
+        if (consumable.drinkSound != null && playerAudio != null)
+        {
+            playerAudio.PlayOneShot(consumable.drinkSound);
+        }
+
+        // thirstRestore is positive when the item quenches thirst, negative when it worsens it (e.g. salty chips).
+        GetComponent<PlayerStats>().EatFood(consumable.hungerRestore, -consumable.thirstRestore);
+
+        yield return new WaitForSeconds(0.4f);
+
+        Destroy(heldObject);
+        heldObject = null;
+        heldObjectRb = null;
+        heldObjectCollider = null;
+        isHoldingGeneralItem = false;
+
+        isConsuming = false;
+    }
+
+    // Hold-E "open" for the food bag: quick squash, then pops its actual contents out near the player.
+    IEnumerator OpenBagRoutine(FoodBagContents contents)
+    {
+        isConsuming = true;
+
+        GameObject bag = heldObject;
+        Vector3 originalScale = bag.transform.localScale;
+
+        float squashTime = 0.15f;
+        float elapsed = 0f;
+        while (elapsed < squashTime)
+        {
+            elapsed += Time.deltaTime;
+            bag.transform.localScale = Vector3.Lerp(originalScale, originalScale * 0.6f, elapsed / squashTime);
+            yield return null;
+        }
+
+        if (bagOpenSound != null && playerAudio != null)
+        {
+            playerAudio.PlayOneShot(bagOpenSound);
+        }
+
+        foreach (FoodBagContents.Entry entry in contents.entries)
+        {
+            if (entry.pickupPrefab == null) continue;
+
+            for (int i = 0; i < entry.quantity; i++)
+            {
+                Vector3 scatter = new Vector3(Random.Range(-0.3f, 0.3f), 0f, Random.Range(-0.3f, 0.3f));
+                GameObject spawnedItem = Instantiate(entry.pickupPrefab, bag.transform.position + scatter, Quaternion.identity);
+
+                Rigidbody spawnedRb = spawnedItem.GetComponent<Rigidbody>();
+                if (spawnedRb != null)
+                {
+                    Vector3 popDirection = (Vector3.up + new Vector3(scatter.x, 0f, scatter.z)).normalized;
+                    spawnedRb.AddForce(popDirection * 1.5f, ForceMode.Impulse);
+                }
+            }
+        }
+
+        Destroy(bag);
+        heldObject = null;
+        heldObjectRb = null;
+        heldObjectCollider = null;
+        isHoldingGeneralItem = false;
 
         isConsuming = false;
     }

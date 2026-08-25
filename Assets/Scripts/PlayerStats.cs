@@ -109,6 +109,13 @@ public class PlayerStats : MonoBehaviour
         Debug.Log("Öl drucken! Törst minskad.");
     }
 
+    // thirstDelta can be negative (quenches, like a drink) or positive (worsens thirst, like salty chips).
+    public void EatFood(float hungerRestore, float thirstDelta)
+    {
+        hunger = Mathf.Clamp(hunger - hungerRestore, 0f, 100f);
+        thirst = Mathf.Clamp(thirst + thirstDelta, 0f, 100f);
+    }
+
     // ========================================================
     // SEKVENS: YRSEL, FALL, SPYA, SIDLÄNGES, FADE & SOV
     // ========================================================

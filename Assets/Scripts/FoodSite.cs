@@ -9,6 +9,7 @@ public class FoodSite : MonoBehaviour
     {
         public string itemName;
         public float price;
+        public GameObject pickupPrefab; // World item spawned when the bag is opened (Assets/Prefab/...)
         public TextMeshProUGUI quantityText;
         public Button incrementButton;
         public Button decrementButton;
@@ -137,6 +138,18 @@ public class FoodSite : MonoBehaviour
         {
             GameObject spawnedBag = Instantiate(foodBagPickupPrefab, deliveryDriverAI.bagInHand.transform.position, deliveryDriverAI.bagInHand.transform.rotation);
             spawnedBag.SetActive(true); // Guard against the prefab ever being saved disabled again
+
+            FoodBagContents contents = spawnedBag.GetComponent<FoodBagContents>();
+            if (contents != null)
+            {
+                foreach (FoodItem item in items)
+                {
+                    if (item.quantity > 0 && item.pickupPrefab != null)
+                    {
+                        contents.entries.Add(new FoodBagContents.Entry { pickupPrefab = item.pickupPrefab, quantity = item.quantity });
+                    }
+                }
+            }
         }
 
         if (statusText != null) statusText.text = "";
