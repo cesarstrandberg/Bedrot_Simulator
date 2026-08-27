@@ -25,6 +25,15 @@ public class DeliveryDriverAI : MonoBehaviour
     [Header("Sound")]
     public AudioSource audioSource;
     public AudioClip knockSound;
+    public AudioClip footstepSound;
+    public float footstepInterval = 0.45f;
+    [Range(0f, 1f)] public float footstepVolume = 0.15f;
+    [Range(0f, 1f)] public float knockVolume = 0.7f;
+
+    [Header("Visibility")]
+    // He's now the invisible food runner (the visible model became the Neighbour prefab) -
+    // keep NavMeshAgent/Animator/Collider/Audio active, just hide the mesh.
+    public bool hideModel = true;
 
     [Header("Rotation at stop point")]
     public float turnAngle = 90f;
@@ -36,6 +45,8 @@ public class DeliveryDriverAI : MonoBehaviour
     private Animator animator;
     private Vector3 spawnPosition;
     private Quaternion spawnRotation;
+    private float currentSpeed;
+    private float footstepTimer;
 
     void Awake()
     {
@@ -45,7 +56,16 @@ public class DeliveryDriverAI : MonoBehaviour
         spawnRotation = transform.rotation;
 
         if (bagInHand != null) bagInHand.SetActive(false);
+        if (hideModel) SetModelVisible(false);
         gameObject.SetActive(false);
+    }
+
+    void SetModelVisible(bool visible)
+    {
+        foreach (Renderer r in GetComponentsInChildren<Renderer>(true))
+        {
+            r.enabled = visible;
+        }
     }
 
     void Update()
@@ -53,7 +73,29 @@ public class DeliveryDriverAI : MonoBehaviour
         // Under trappklättringen (agent.enabled == false) sätts Speed manuellt i ClimbStairs istället.
         if (animator != null && agent != null && agent.enabled)
         {
-            animator.SetFloat("Speed", agent.velocity.magnitude);
+            currentSpeed = agent.velocity.magnitude;
+            animator.SetFloat("Speed", currentSpeed);
+        }
+
+        UpdateFootsteps();
+    }
+
+    void UpdateFootsteps()
+    {
+        if (audioSource == null || footstepSound == null) return;
+
+        if (currentSpeed > 0.1f)
+        {
+            footstepTimer -= Time.deltaTime;
+            if (footstepTimer <= 0f)
+            {
+                audioSource.PlayOneShot(footstepSound, footstepVolume);
+                footstepTimer = footstepInterval;
+            }
+        }
+        else
+        {
+            footstepTimer = 0f;
         }
     }
 
@@ -67,7 +109,6 @@ public class DeliveryDriverAI : MonoBehaviour
         gameObject.SetActive(true);
 
         if (bagInHand != null) bagInHand.SetActive(true);
-        if (audioSource != null && knockSound != null) audioSource.PlayOneShot(knockSound);
 
         agent.enabled = true;
         agent.Warp(spawnPosition);
@@ -95,11 +136,15 @@ public class DeliveryDriverAI : MonoBehaviour
 
         CurrentState = DriverState.Waiting;
         agent.isStopped = true;
-        StartCoroutine(TurnRoutine(turnAngle));
+        if (audioSource != null && knockSound != null) audioSource.PlayOneShot(knockSound, knockVolume);
+        yield return StartCoroutine(TurnRoutine(turnAngle));
+
+        DropOffBag();
     }
 
-    // Called from DeliveryDriverClickable when the player clicks him while he's waiting
-    public void Interact()
+    // Drops the bag as soon as he arrives - he's invisible, there's nothing to click on anymore.
+    // Interact() is kept for DeliveryDriverClickable and just does the same thing defensively.
+    void DropOffBag()
     {
         if (CurrentState != DriverState.Waiting) return;
 
@@ -109,6 +154,11 @@ public class DeliveryDriverAI : MonoBehaviour
         CurrentState = DriverState.Leaving;
         agent.isStopped = false;
         StartCoroutine(LeaveRoutine());
+    }
+
+    public void Interact()
+    {
+        DropOffBag();
     }
 
     IEnumerator LeaveRoutine()
@@ -167,12 +217,14 @@ public class DeliveryDriverAI : MonoBehaviour
                     transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(flatDelta.normalized), stairTurnSpeed * Time.deltaTime);
                 }
 
-                if (animator != null) animator.SetFloat("Speed", moveDelta.magnitude / Time.deltaTime);
+                currentSpeed = moveDelta.magnitude / Time.deltaTime;
+                if (animator != null) animator.SetFloat("Speed", currentSpeed);
 
                 yield return null;
             }
         }
 
+        currentSpeed = 0f;
         if (animator != null) animator.SetFloat("Speed", 0f);
     }
 

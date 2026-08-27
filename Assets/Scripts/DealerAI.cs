@@ -25,6 +25,10 @@ public class DealerAI : MonoBehaviour
     [Header("Ljud")]
     public AudioSource audioSource;
     public AudioClip knockSound;
+    public AudioClip footstepSound;
+    public float footstepInterval = 0.45f;
+    [Range(0f, 1f)] public float footstepVolume = 0.15f;
+    [Range(0f, 1f)] public float knockVolume = 0.7f;
 
     [Header("Rotation vid Dealer_StopPos")]
     public float turnAngle = 90f;
@@ -36,6 +40,8 @@ public class DealerAI : MonoBehaviour
     private Animator animator;
     private Vector3 spawnPosition;
     private Quaternion spawnRotation;
+    private float currentSpeed;
+    private float footstepTimer;
 
     void Awake()
     {
@@ -53,7 +59,29 @@ public class DealerAI : MonoBehaviour
         // Under trappklättringen (agent.enabled == false) sätts Speed manuellt i ClimbStairs istället.
         if (animator != null && agent != null && agent.enabled)
         {
-            animator.SetFloat("Speed", agent.velocity.magnitude);
+            currentSpeed = agent.velocity.magnitude;
+            animator.SetFloat("Speed", currentSpeed);
+        }
+
+        UpdateFootsteps();
+    }
+
+    void UpdateFootsteps()
+    {
+        if (audioSource == null || footstepSound == null) return;
+
+        if (currentSpeed > 0.1f)
+        {
+            footstepTimer -= Time.deltaTime;
+            if (footstepTimer <= 0f)
+            {
+                audioSource.PlayOneShot(footstepSound, footstepVolume);
+                footstepTimer = footstepInterval;
+            }
+        }
+        else
+        {
+            footstepTimer = 0f;
         }
     }
 
@@ -67,7 +95,6 @@ public class DealerAI : MonoBehaviour
         gameObject.SetActive(true);
 
         if (weedJarInHand != null) weedJarInHand.SetActive(true);
-        if (audioSource != null && knockSound != null) audioSource.PlayOneShot(knockSound);
 
         agent.enabled = true;
         agent.Warp(spawnPosition);
@@ -95,6 +122,7 @@ public class DealerAI : MonoBehaviour
 
         CurrentState = DealerState.Waiting;
         agent.isStopped = true;
+        if (audioSource != null && knockSound != null) audioSource.PlayOneShot(knockSound, knockVolume);
         StartCoroutine(TurnRoutine(turnAngle));
     }
 
@@ -167,12 +195,14 @@ public class DealerAI : MonoBehaviour
                     transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(flatDelta.normalized), stairTurnSpeed * Time.deltaTime);
                 }
 
-                if (animator != null) animator.SetFloat("Speed", moveDelta.magnitude / Time.deltaTime);
+                currentSpeed = moveDelta.magnitude / Time.deltaTime;
+                if (animator != null) animator.SetFloat("Speed", currentSpeed);
 
                 yield return null;
             }
         }
 
+        currentSpeed = 0f;
         if (animator != null) animator.SetFloat("Speed", 0f);
     }
 

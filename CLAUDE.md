@@ -95,6 +95,24 @@ This is the only animation pipeline available — any NPC/character plan needs t
   refill from the dealer once buds run out.
 - `ConsumableItem` + consume flow in `PlayerInteraction`: drinking a beer or smoking a joint plays
   an arm-raise animation, triggers sounds, and calls into `PlayerStats` (`SmokeJoint`/`DrinkBeer`).
+  Food items (see below) reuse `ConsumableItem` with `useArmAnimation = false`: held like a general
+  item (floats in front, scroll to rotate) instead of raised to an arm, eaten instantly on
+  left-click via `PlayerStats.EatFood(hungerRestore, thirstDelta)`.
+
+**Food delivery loop**
+- `DeliveryDriverAI` + `DeliveryDriverClickable` + `FoodSite`: mirrors the drug delivery loop above
+  (same NavMeshAgent-waypoint-and-stairs pattern, same knock/wait/handoff/leave state machine, now
+  also driven by the same `AnimatorController` as `DealerAI` so both NPCs actually animate). Player
+  orders from an in-game web portal (`snabbmat.se`); clicking the driver at the door spawns a
+  physical `Bag.prefab` pickup (tag `Interactable`, Rigidbody + Collider) and hides the driver's
+  visual hand-bag mesh.
+- `FoodBagContents`: snapshot of exactly what was ordered (prefab + quantity per item), captured
+  from the cart at handoff time before it resets, so each bag remembers its real contents instead
+  of spawning a fixed set.
+- Opening the bag: while holding it, left-click plays a quick squash effect then scatter-spawns its
+  actual contents (Chicken Nuggets, Noodles, Chips, Beer) near the player and destroys the bag.
+  Each food item restores hunger on eat; Chips also *raises* thirst (salty) via a negative
+  `thirstRestore` value — sign convention documented on `ConsumableItem.thirstRestore`.
 
 **University / exam system**
 - `WebBrowser` + `UniversityPortal`: an in-game laptop browser simulates a real university portal
@@ -119,6 +137,23 @@ This is the only animation pipeline available — any NPC/character plan needs t
   where the player first meets the dealer, story-wise.
 - **Escalation arc**: deeper into the drug business → acquiring a gun → going rogue. Needs actual
   design work — triggers, pacing, what "rogue" means mechanically. Not started.
+- **Neighbor complaint/escalation system** (`NeighborAI`, being imported now): reuses the
+  `DealerAI`/`DeliveryDriverAI` NavMeshAgent-walk-to-door pattern rather than new locomotion code.
+  Deliberately no hidden "heat" meter — just a 3-strike counter tied to joints smoked:
+  1. 1st joint: he walks up, knocks, stands outside the door and yells.
+  2. 2nd joint: yells longer, walks back toward his own apartment, then turns around and comes
+     back to yell some more.
+  3. 3rd joint: barges through the door regardless of whether the player opens it. What happens
+     next (knocked out, police called, etc.) is intentionally a stub for now — decide later.
+  - No hiding-spot mechanic for this pass (apartment doesn't have any yet — revisit once it does).
+  - Yelling delivered as timed subtitle lines (same no-voice-acting pattern as `LectureManager`
+    above), with placeholder/nonsense voice barks layered in later. Same treatment eventually
+    planned for the dealer and delivery driver too, not recorded yet.
+  - **Blocked on a day/sleep/world-time system that doesn't exist yet**: the strike counter needs
+    something to reset against (sleeping? a day/night cycle? a real-time cooldown?), otherwise one
+    early joint session permanently burns all 3 strikes for the rest of the playthrough. Not
+    building full time-tracking yet since the game isn't fully playable end-to-end — flagged here
+    so the reset logic isn't forgotten once that system exists.
 - More environment/scene work around Tegnérlunden once the above systems exist to populate it.
 
 ## Open questions (fill in as they get decided)
@@ -126,6 +161,8 @@ This is the only animation pipeline available — any NPC/character plan needs t
 - Can the rogue path ever be walked back, or is it one-way once triggered?
 - What does "going rogue" actually change mechanically (new stats, new locations, NPC reactions)?
 - How many lecture "days" happen before the story hands control over to the sandbox?
+- What does the neighbor's strike counter reset against once a day/sleep/world-time system exists?
+- What actually happens on the neighbor's 3rd-strike barge-in (knockout, police, something else)?
 - Final title.
 
 ## Working with this doc
