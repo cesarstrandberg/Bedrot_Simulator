@@ -29,6 +29,31 @@ public class DealerAI : MonoBehaviour
     public float footstepInterval = 0.45f;
     [Range(0f, 1f)] public float footstepVolume = 0.15f;
     [Range(0f, 1f)] public float knockVolume = 0.7f;
+    // Separate source so the knock can carry across the apartment while footsteps/voice stay close-range.
+    // Falls back to 'audioSource' if left empty.
+    public AudioSource doorbellAudioSource;
+
+    [Header("Dialogue")]
+    // One long gibberish take - we play trimmed slices of it rather than the whole thing.
+    public AudioClip voiceLine;
+    public DialogueSubtitle dialogueSubtitle;
+    public DialogueSubtitle.Line[] arrivalLines;
+    public DialogueSubtitle.Line[] farewellLines;
+
+    [Header("Voice clip slicing (which part of 'voiceLine' plays, and for how long)")]
+    public float arrivalVoiceStartTime = 0f;
+    public float arrivalVoiceDuration = 5f;
+    public float farewellVoiceStartTime = 5f;
+    public float farewellVoiceDuration = 1f;
+
+    [Header("Speech trigger (player has to walk here first)")]
+    // Like a trapdoor switch - he doesn't start talking until you've walked up to this point.
+    public Transform toggleSpeechPos;
+    public float speechTriggerRadius = 1.5f;
+    public float speechTriggerDelay = 1.5f;
+
+    [Header("Dap-up (replaces the plain click to send him off)")]
+    public AudioClip dapSound;
 
     [Header("Rotation vid Dealer_StopPos")]
     public float turnAngle = 90f;
@@ -42,6 +67,9 @@ public class DealerAI : MonoBehaviour
     private Quaternion spawnRotation;
     private float currentSpeed;
     private float footstepTimer;
+    private bool jarHandedOff;
+    private bool speechTriggered;
+    private bool dapped;
 
     void Awake()
     {
@@ -64,6 +92,56 @@ public class DealerAI : MonoBehaviour
         }
 
         UpdateFootsteps();
+        CheckSpeechTrigger();
+    }
+
+    void CheckSpeechTrigger()
+    {
+        if (CurrentState != DealerState.Waiting || speechTriggered || toggleSpeechPos == null) return;
+
+        Camera cam = Camera.main;
+        if (cam == null) return;
+
+        // Horizontal distance only - the camera sits at eye height, toggleSpeechPos is a floor
+        // marker, so comparing raw 3D distance would almost never trigger.
+        Vector3 delta = cam.transform.position - toggleSpeechPos.position;
+        delta.y = 0f;
+
+        if (delta.magnitude <= speechTriggerRadius)
+        {
+            speechTriggered = true;
+            StartCoroutine(SpeechAfterDelay());
+        }
+    }
+
+    IEnumerator SpeechAfterDelay()
+    {
+        yield return new WaitForSeconds(speechTriggerDelay);
+
+        PlayVoiceSlice(arrivalVoiceStartTime, arrivalVoiceDuration);
+        if (dialogueSubtitle != null) dialogueSubtitle.Play(arrivalLines);
+    }
+
+    // Plays a trimmed slice of 'voiceLine' - starts at startTime, cuts off after 'duration'.
+    // Lets one long gibberish take stand in for several different lines instead of needing
+    // a separate audio file per line.
+    void PlayVoiceSlice(float startTime, float duration)
+    {
+        if (audioSource == null || voiceLine == null) return;
+
+        audioSource.Stop();
+        audioSource.clip = voiceLine;
+        audioSource.time = Mathf.Clamp(startTime, 0f, Mathf.Max(0f, voiceLine.length - 0.01f));
+        audioSource.Play();
+
+        StartCoroutine(StopVoiceAfter(duration));
+    }
+
+    IEnumerator StopVoiceAfter(float duration)
+    {
+        yield return new WaitForSeconds(duration);
+
+        if (audioSource != null && audioSource.clip == voiceLine) audioSource.Stop();
     }
 
     void UpdateFootsteps()
@@ -93,6 +171,9 @@ public class DealerAI : MonoBehaviour
         transform.position = spawnPosition;
         transform.rotation = spawnRotation;
         gameObject.SetActive(true);
+        jarHandedOff = false;
+        speechTriggered = false;
+        dapped = false;
 
         if (weedJarInHand != null) weedJarInHand.SetActive(true);
 
@@ -122,17 +203,42 @@ public class DealerAI : MonoBehaviour
 
         CurrentState = DealerState.Waiting;
         agent.isStopped = true;
-        if (audioSource != null && knockSound != null) audioSource.PlayOneShot(knockSound, knockVolume);
-        StartCoroutine(TurnRoutine(turnAngle));
+
+        AudioSource bellSource = doorbellAudioSource != null ? doorbellAudioSource : audioSource;
+        if (bellSource != null && knockSound != null) bellSource.PlayOneShot(knockSound, knockVolume);
+
+        yield return StartCoroutine(TurnRoutine(turnAngle));
+
+        // He doesn't start talking until you've walked up to toggleSpeechPos - see CheckSpeechTrigger().
     }
 
-    // Anropas från DealerClickable när spelaren klickar på honom medan han väntar
+    // Anropas från DealerClickable. Första klicket = ta emot burken från honom (precis som förut,
+    // spelaren styr själv NÄR det händer - E/klick på honom, inget som sker automatiskt).
+    // Andra klicket (dappen) = skicka i väg honom.
     public void Interact()
     {
         if (CurrentState != DealerState.Waiting) return;
 
-        if (drugSite != null) drugSite.CompleteHandoff();
-        if (weedJarInHand != null) weedJarInHand.SetActive(false);
+        if (!jarHandedOff)
+        {
+            jarHandedOff = true;
+            if (drugSite != null) drugSite.CompleteHandoff();
+            if (weedJarInHand != null) weedJarInHand.SetActive(false);
+            return;
+        }
+
+        if (dapped) return;
+        dapped = true;
+
+        if (audioSource != null && dapSound != null) audioSource.PlayOneShot(dapSound);
+        StartCoroutine(FarewellThenLeave());
+    }
+
+    // He stays put and says his farewell line(s) before actually walking off.
+    IEnumerator FarewellThenLeave()
+    {
+        PlayVoiceSlice(farewellVoiceStartTime, farewellVoiceDuration);
+        if (dialogueSubtitle != null) yield return StartCoroutine(dialogueSubtitle.PlayRoutine(farewellLines));
 
         CurrentState = DealerState.Leaving;
         agent.isStopped = false;
