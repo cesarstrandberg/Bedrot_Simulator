@@ -43,7 +43,12 @@ public class DealerAI : MonoBehaviour
     [Header("Voice clip slicing (which part of 'voiceLine' plays, and for how long)")]
     public float arrivalVoiceStartTime = 0f;
     public float arrivalVoiceDuration = 5f;
-    public float farewellVoiceStartTime = 5f;
+    // Covers arrivalLines[2] ("don't leave me hanging") specifically - it sits after a blank
+    // pause long enough that the arrival slice above runs out before that line's text appears,
+    // so it gets its own slice timed to when that line actually shows up.
+    public float reminderVoiceStartTime = 5.3f;
+    public float reminderVoiceDuration = 2.2f;
+    public float farewellVoiceStartTime = 7.5f;
     public float farewellVoiceDuration = 1f;
 
     [Header("Speech trigger (player has to walk here first)")]
@@ -120,6 +125,15 @@ public class DealerAI : MonoBehaviour
 
         PlayVoiceSlice(arrivalVoiceStartTime, arrivalVoiceDuration);
         if (dialogueSubtitle != null) dialogueSubtitle.Play(arrivalLines);
+
+        // Line index 2 is "don't leave me hanging" - wait out however long it takes the first
+        // two lines (plus line 2's own pause) to finish, then give it its own voice slice.
+        if (arrivalLines != null && arrivalLines.Length >= 3)
+        {
+            float reminderDelay = arrivalLines[0].duration + arrivalLines[1].duration + arrivalLines[2].delayBefore;
+            yield return new WaitForSeconds(reminderDelay);
+            PlayVoiceSlice(reminderVoiceStartTime, reminderVoiceDuration);
+        }
     }
 
     // Plays a trimmed slice of 'voiceLine' - starts at startTime, cuts off after 'duration'.
