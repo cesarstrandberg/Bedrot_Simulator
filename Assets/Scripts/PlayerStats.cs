@@ -97,7 +97,9 @@ public class PlayerStats : MonoBehaviour
 
     public void SmokeJoint()
     {
-        highLevel += 0.35f;
+        // 4 joints needed to black out (matches the >= 1.05f check in Update): first 3 build up
+        // the high without maxing it out, the 4th tips highLevel over the pass-out threshold.
+        highLevel += 1.05f / 4f;
         craving = 0f; // NYTT: Abstinensen nollställs direkt när man tar en holk!
         Debug.Log("Joint rökt! Craving nollställd.");
     }
