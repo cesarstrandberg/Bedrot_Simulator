@@ -80,7 +80,9 @@ This is the only animation pipeline available — any NPC/character plan needs t
 - `PlayerStats`: money, hunger, thirst, craving (weed withdrawal), highLevel (weed), drunkLevel
   (alcohol) all ticking over time. Munchies mechanic (being high triples hunger rate). Passing out
   from being too drunk/high/thirsty triggers a full dizzy → fall → puke → blackout → fade → sleep →
-  wake-up-hungry sequence.
+  wake-up-hungry sequence. Weed pass-out now takes 4 joints instead of 3 (first 3 build up the high
+  without maxing it out) — changed deliberately to leave room for the neighbor's 3-strike escalation
+  to fully play out before the player can black out, see Neighbor system below.
 
 **Drug economy loop**
 - `DealerAI` + `DealerClickable` + `DrugSite`: player orders from a web portal, a dealer NPC
@@ -143,8 +145,16 @@ This is the only animation pipeline available — any NPC/character plan needs t
   1. 1st joint: he walks up, knocks, stands outside the door and yells.
   2. 2nd joint: yells longer, walks back toward his own apartment, then turns around and comes
      back to yell some more.
-  3. 3rd joint: barges through the door regardless of whether the player opens it. What happens
-     next (knocked out, police called, etc.) is intentionally a stub for now — decide later.
+  3. 3rd joint: barges through the door regardless of whether the player opens it, running rather
+     than walking. What happens next (knocked out, police called, etc.) is intentionally a stub
+     for now — decide later.
+  - **4th joint (pass-out joint — see below): automatic "final rush" beat, not a 4th strike.**
+    The counter stays at 3. As soon as `highLevel` crosses the pass-out threshold, the neighbor
+    (already having barged in on strike 3) makes one more running charge at the player through the
+    door — but the *instant* `PlayerStats.PassOutSequence()` begins (the dizzy stumble kicking in,
+    not the ~10s-later fade-to-black) already counts as "blacked out," so he never actually reaches
+    the player. It's a near-miss/jump-scare beat, not a resolved confrontation — deliberately left
+    unresolved until the player has a way to fight back (see baseball bat, below).
   - No hiding-spot mechanic for this pass (apartment doesn't have any yet — revisit once it does).
   - Yelling delivered as timed subtitle lines (same no-voice-acting pattern as `LectureManager`
     above), with placeholder/nonsense voice barks layered in later. Same treatment eventually
@@ -154,6 +164,24 @@ This is the only animation pipeline available — any NPC/character plan needs t
     early joint session permanently burns all 3 strikes for the rest of the playthrough. Not
     building full time-tracking yet since the game isn't fully playable end-to-end — flagged here
     so the reset logic isn't forgotten once that system exists.
+  - **Running animation needed**: the shared Animator (`DealerAnimator`, also used by the delivery
+    driver) only has `Idle`/`Walk` states, no `Run`. Strikes 3 and the joint-4 final rush both need
+    him running, so a real Run clip has to come from Mixamo (same pipeline as everything else,
+    see Asset pipeline above) and get wired into the controller as a proper speed-driven state —
+    not faked by just cranking NavMeshAgent speed on the walk cycle.
+  - **Planned later, not started**: a baseball bat the player can find and use to knock the
+    neighbor out once he's inside. Needs its own design pass (how it's found, whether it's a
+    prompt/QTE or a raycast hit, what happens to the strike counter afterward) — not happening
+    until the barge-in/final-rush beats above are actually built and feel right.
+  - **Visual asset plan**: the delivery driver's rigged character model is being reused as the
+    neighbor's visual identity — it'll be duplicated out into its own independent prefab
+    (`Assets/Prefab/Characters/Neighbour.prefab`, not a linked instance of `DeliveryDriver.prefab`)
+    so edits to one never risk touching the other. The original `DeliveryDriver` GameObject stays
+    exactly where it is under `FoodSituation` (that hierarchy isn't going away) and keeps working
+    as before — it's already set up to run invisible at runtime (`hideModel` on `DeliveryDriverAI`,
+    since there's nothing left to click once he's not shown), so the food-delivery loop is
+    unaffected. The new Neighbour NPC gets its own scene container, `NeighbourSituation`, sibling
+    to `FoodSituation`/`Dealer_Situation`.
 - More environment/scene work around Tegnérlunden once the above systems exist to populate it.
 
 ## Open questions (fill in as they get decided)
@@ -162,7 +190,12 @@ This is the only animation pipeline available — any NPC/character plan needs t
 - What does "going rogue" actually change mechanically (new stats, new locations, NPC reactions)?
 - How many lecture "days" happen before the story hands control over to the sandbox?
 - What does the neighbor's strike counter reset against once a day/sleep/world-time system exists?
-- What actually happens on the neighbor's 3rd-strike barge-in (knockout, police, something else)?
+- What actually happens on the neighbor's 3rd-strike barge-in once he's inside — does he stay put
+  until the joint-4 final rush, leave and come back, something else?
+- What happens after the joint-4 final rush resolves (player is now passed out with the neighbor
+  in the apartment) — does he leave once the player's asleep, wait, trigger something on wake-up?
+- Baseball bat knockout: how is it found, how does the knock-out interaction work (prompt/QTE/
+  raycast), what happens to the strike counter/neighbor afterward?
 - Final title.
 
 ## Working with this doc
