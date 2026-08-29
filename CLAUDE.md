@@ -139,49 +139,59 @@ This is the only animation pipeline available — any NPC/character plan needs t
   where the player first meets the dealer, story-wise.
 - **Escalation arc**: deeper into the drug business → acquiring a gun → going rogue. Needs actual
   design work — triggers, pacing, what "rogue" means mechanically. Not started.
-- **Neighbor complaint/escalation system** (`NeighborAI`, being imported now): reuses the
-  `DealerAI`/`DeliveryDriverAI` NavMeshAgent-walk-to-door pattern rather than new locomotion code.
-  Deliberately no hidden "heat" meter — just a 3-strike counter tied to joints smoked:
-  1. 1st joint: he walks up, knocks, stands outside the door and yells.
-  2. 2nd joint: yells longer, walks back toward his own apartment, then turns around and comes
-     back to yell some more.
-  3. 3rd joint: barges through the door regardless of whether the player opens it, running rather
-     than walking. What happens next (knocked out, police called, etc.) is intentionally a stub
-     for now — decide later.
-  - **4th joint (pass-out joint — see below): automatic "final rush" beat, not a 4th strike.**
-    The counter stays at 3. As soon as `highLevel` crosses the pass-out threshold, the neighbor
-    (already having barged in on strike 3) makes one more running charge at the player through the
-    door — but the *instant* `PlayerStats.PassOutSequence()` begins (the dizzy stumble kicking in,
-    not the ~10s-later fade-to-black) already counts as "blacked out," so he never actually reaches
-    the player. It's a near-miss/jump-scare beat, not a resolved confrontation — deliberately left
-    unresolved until the player has a way to fight back (see baseball bat, below).
+- **Neighbor complaint/escalation system** (`NeighborAI` + `NeighborClickable`, implemented but not
+  fully wired up yet — see wiring status below): copies the `DealerAI`/`DeliveryDriverAI`
+  NavMeshAgent-walk-to-door/stair-climb/knock/footstep pattern rather than new locomotion code.
+  No persistent "heat" meter — an in-memory 3-strike counter (`NeighborAI.jointsSmoked`) tied to
+  joints smoked this session, driven by `NeighborAI.OnJointSmoked()`, which `PlayerStats.SmokeJoint()`
+  calls through a new `PlayerStats.neighbor` reference field:
+  1. 1st joint: walks up, knocks, stands outside and yells (`strike1Lines`, `AngryTrigger` anim).
+  2. 2nd joint: yells (`strike2LinesFirst`), retreats partway toward his own place (`retreatPoint`),
+     turns around, comes back, and yells again — more escalated this time (`strike2LinesSecond`,
+     `AngryPointTrigger` anim, the pointing/finger-jabbing variant).
+  3. 3rd+ joint: drops whatever he was doing and **runs** into the apartment, chasing the player's
+     live position (not a fixed stop point) rather than barging in once and stopping.
+  - Click-to-dismiss (`Interact()`, same pattern as dapping up the dealer) only works while he's
+    actively yelling (strikes 1 & 2) — once he's charging (strike 3+) it's a no-op, by design.
+  - **How the charge resolves (decided and implemented)**: rather than an "instant blackout" timed
+    to the exact moment of the 4th joint, the charge is a genuine race. While charging, `NeighborAI`
+    checks every frame whether an `attackPoint` (his hand bone) is within `attackRadius` (default
+    1.2) of the player; if so, he's caught them and calls the new `PlayerStats.KnockedOut()`.
+    Separately, the player's own 4-joints-to-black-out threshold (see PlayerStats above) can also
+    fire first if the player smokes fast enough. Both paths reuse the exact same
+    `PassOutSequence()` — `KnockedOut()` is a placeholder reuse for now; a distinct "decked by the
+    neighbor" beat can be designed later. This supersedes the earlier "he never actually reaches
+    you" idea — he genuinely can catch the player now if they dawdle on the 4th joint.
+  - **No baseball bat for the neighbor** — decided against it, to keep him reading as a grounded
+    "pissed-off neighbor" rather than an armed home invasion. Instead he has a bare-handed moveset:
+    `Idle`/`Walk`/`Run` (speed-blended, `NeighborAnimator.controller`) plus one-shot `Angry`/
+    `AngryPoint` (wired to the yelling beats above) and `StepForward`/`StepBack`/`JabCross`/`Hook`
+    (added to the controller as available states, but **nothing calls them yet** — the actual
+    punch-combo timing during the charge hasn't been designed).
+  - Player-side baseball bat (found later, used to knock the neighbor out) is still the planned
+    counter to this — not started. Needs its own design pass (how it's found, prompt/QTE/raycast,
+    what happens after).
   - No hiding-spot mechanic for this pass (apartment doesn't have any yet — revisit once it does).
   - Yelling delivered as timed subtitle lines (same no-voice-acting pattern as `LectureManager`
-    above), with placeholder/nonsense voice barks layered in later. Same treatment eventually
-    planned for the dealer and delivery driver too, not recorded yet.
-  - **Blocked on a day/sleep/world-time system that doesn't exist yet**: the strike counter needs
-    something to reset against (sleeping? a day/night cycle? a real-time cooldown?), otherwise one
-    early joint session permanently burns all 3 strikes for the rest of the playthrough. Not
-    building full time-tracking yet since the game isn't fully playable end-to-end — flagged here
-    so the reset logic isn't forgotten once that system exists.
-  - **Running animation needed**: the shared Animator (`DealerAnimator`, also used by the delivery
-    driver) only has `Idle`/`Walk` states, no `Run`. Strikes 3 and the joint-4 final rush both need
-    him running, so a real Run clip has to come from Mixamo (same pipeline as everything else,
-    see Asset pipeline above) and get wired into the controller as a proper speed-driven state —
-    not faked by just cranking NavMeshAgent speed on the walk cycle.
-  - **Planned later, not started**: a baseball bat the player can find and use to knock the
-    neighbor out once he's inside. Needs its own design pass (how it's found, whether it's a
-    prompt/QTE or a raycast hit, what happens to the strike counter afterward) — not happening
-    until the barge-in/final-rush beats above are actually built and feel right.
-  - **Visual asset plan**: the delivery driver's rigged character model is being reused as the
-    neighbor's visual identity — it'll be duplicated out into its own independent prefab
-    (`Assets/Prefab/Characters/Neighbour.prefab`, not a linked instance of `DeliveryDriver.prefab`)
-    so edits to one never risk touching the other. The original `DeliveryDriver` GameObject stays
-    exactly where it is under `FoodSituation` (that hierarchy isn't going away) and keeps working
-    as before — it's already set up to run invisible at runtime (`hideModel` on `DeliveryDriverAI`,
-    since there's nothing left to click once he's not shown), so the food-delivery loop is
-    unaffected. The new Neighbour NPC gets its own scene container, `NeighbourSituation`, sibling
-    to `FoodSituation`/`Dealer_Situation`.
+    above), placeholder/nonsense voice barks layered in later.
+  - **Blocked on a day/sleep/world-time system that doesn't exist yet**: `jointsSmoked` is a plain
+    in-memory int with nothing to reset against (sleeping? a day/night cycle? a real-time cooldown?)
+    — deliberately left as a "problem for later" rather than building time-tracking now.
+  - **Visual asset**: reused the delivery driver's rigged model, duplicated directly into the scene
+    as a `Neighbour` GameObject (not yet packaged as its own prefab asset). `DeliveryDriver` stays
+    exactly where it is under `FoodSituation`, still running invisible at runtime as before —
+    unaffected. A dedicated `NeighbourSituation` scene container (sibling to
+    `FoodSituation`/`Dealer_Situation`) is still to be created and the Neighbour moved into it.
+  - **Scene wiring status**: `Neighbour` has `NavMeshAgent`, a body-sized `CapsuleCollider`,
+    `Animator` (assigned to `NeighborAnimator.controller`), two `AudioSource`s, `NeighborAI`, and
+    `NeighborClickable` — all added, with the two audio sources and the clickable→AI link wired.
+    `PlayerStats.neighbor` → `NeighborAI` is wired (this was a live bug: it sat unwired for a
+    while, so smoking joints silently no-op'd instead of triggering him — fixed). **Still needs to
+    be dragged in by hand**: `stopPoint` (required — currently null and will throw a
+    NullReferenceException the moment he tries to approach), `retreatPoint`, `playerStats`,
+    `attackPoint`, the four stair-waypoint transforms, `knockSound`/`footstepSound`,
+    `dialogueSubtitle`, and the three line arrays (`strike1Lines`/`strike2LinesFirst`/
+    `strike2LinesSecond`).
 - More environment/scene work around Tegnérlunden once the above systems exist to populate it.
 
 ## Open questions (fill in as they get decided)
@@ -190,10 +200,12 @@ This is the only animation pipeline available — any NPC/character plan needs t
 - What does "going rogue" actually change mechanically (new stats, new locations, NPC reactions)?
 - How many lecture "days" happen before the story hands control over to the sandbox?
 - What does the neighbor's strike counter reset against once a day/sleep/world-time system exists?
-- What actually happens on the neighbor's 3rd-strike barge-in once he's inside — does he stay put
-  until the joint-4 final rush, leave and come back, something else?
-- What happens after the joint-4 final rush resolves (player is now passed out with the neighbor
-  in the apartment) — does he leave once the player's asleep, wait, trigger something on wake-up?
+- What happens after the neighbor's charge resolves — whether he catches the player (`KnockedOut()`)
+  or the player blacks out first from the 4th joint — with him now standing in the apartment: does
+  he leave once the player's passed out, wait, trigger something on wake-up?
+- Punch-combo timing: when exactly during the charge should `JabCross`/`Hook`/`StepForward`/
+  `StepBack` actually fire? Not designed yet — states exist in `NeighborAnimator.controller` but
+  nothing triggers them.
 - Baseball bat knockout: how is it found, how does the knock-out interaction work (prompt/QTE/
   raycast), what happens to the strike counter/neighbor afterward?
 - Final title.

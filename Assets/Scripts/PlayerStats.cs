@@ -15,6 +15,11 @@ public class PlayerStats : MonoBehaviour
     public float highLevel = 0f;
     public Volume highVolume;
 
+    [Header("Neighbor (optional)")]
+    // Notified from SmokeJoint() so his strike escalation tracks joints smoked without PlayerStats
+    // needing to know anything about his state machine. Leave empty until he exists in the scene.
+    public NeighborAI neighbor;
+
     [Header("Drunk Effects (Alcohol)")]
     public float drunkLevel = 0f;
     public Transform playerCamera;
@@ -102,6 +107,16 @@ public class PlayerStats : MonoBehaviour
         highLevel += 1.05f / 4f;
         craving = 0f; // NYTT: Abstinensen nollställs direkt när man tar en holk!
         Debug.Log("Joint rökt! Craving nollställd.");
+
+        if (neighbor != null) neighbor.OnJointSmoked();
+    }
+
+    // Called by NeighborAI once his hand gets within attackRadius of the player during his charge -
+    // reuses the exact same pass-out sequence as the drug/drunk/thirst blackout for now (placeholder
+    // until a dedicated "knocked out by the neighbor" beat gets designed).
+    public void KnockedOut()
+    {
+        if (!hasPassedOut) StartCoroutine(PassOutSequence());
     }
 
     public void DrinkBeer()
