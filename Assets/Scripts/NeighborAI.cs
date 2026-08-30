@@ -70,11 +70,24 @@ public class NeighborAI : MonoBehaviour
         gameObject.SetActive(false);
     }
 
+    // States where he's actively supposed to be walking/running toward a destination -
+    // used below to force the Walk/Run animation through NavMeshAgent's autoBraking deceleration
+    // (his real velocity dips under the animator's Speed threshold well before he actually arrives,
+    // which flickered him into Idle while still visibly sliding).
+    static bool IsMovingState(NeighborState state)
+    {
+        return state == NeighborState.Approaching
+            || state == NeighborState.Retreating
+            || state == NeighborState.Returning
+            || state == NeighborState.Charging
+            || state == NeighborState.Leaving;
+    }
+
     void Update()
     {
         if (animator != null && agent != null && agent.enabled)
         {
-            currentSpeed = agent.velocity.magnitude;
+            currentSpeed = IsMovingState(CurrentState) ? agent.speed : agent.velocity.magnitude;
             animator.SetFloat("Speed", currentSpeed);
         }
 

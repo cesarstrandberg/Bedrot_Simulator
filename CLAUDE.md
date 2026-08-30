@@ -182,16 +182,169 @@ This is the only animation pipeline available — any NPC/character plan needs t
     exactly where it is under `FoodSituation`, still running invisible at runtime as before —
     unaffected. A dedicated `NeighbourSituation` scene container (sibling to
     `FoodSituation`/`Dealer_Situation`) is still to be created and the Neighbour moved into it.
-  - **Scene wiring status**: `Neighbour` has `NavMeshAgent`, a body-sized `CapsuleCollider`,
-    `Animator` (assigned to `NeighborAnimator.controller`), two `AudioSource`s, `NeighborAI`, and
-    `NeighborClickable` — all added, with the two audio sources and the clickable→AI link wired.
-    `PlayerStats.neighbor` → `NeighborAI` is wired (this was a live bug: it sat unwired for a
-    while, so smoking joints silently no-op'd instead of triggering him — fixed). **Still needs to
-    be dragged in by hand**: `stopPoint` (required — currently null and will throw a
-    NullReferenceException the moment he tries to approach), `retreatPoint`, `playerStats`,
-    `attackPoint`, the four stair-waypoint transforms, `knockSound`/`footstepSound`,
-    `dialogueSubtitle`, and the three line arrays (`strike1Lines`/`strike2LinesFirst`/
-    `strike2LinesSecond`).
+  - **Scene wiring status: fully wired and working.** `Neighbour` (now under its own
+    `NeighbourSituation` container, sibling to `Dealer_Situation`/`FoodSituation`) has
+    `NavMeshAgent`, a body-sized `CapsuleCollider`, `Animator`, two `AudioSource`s, `NeighborAI`,
+    and `NeighborClickable`. Every `NeighborAI` field is wired: `stopPoint` (reuses `Dealer_StopPos`),
+    `retreatPoint`, `playerStats` (→ `Apartment_Floor_3/Player/Main Camera`, where `PlayerStats`
+    actually lives), `attackPoint` (→ his `mixamorig:RightHand` bone), the four stair-waypoint
+    transforms (reuse the Dealer's stair markers), `knockSound`/`footstepSound`, `dialogueSubtitle`
+    (→ the shared `DealerSubtitleCanvas`), and all three dialogue line arrays have placeholder text
+    in them. `PlayerStats.neighbor` → `NeighborAI` is wired.
+  - **Code fixes landed in `NeighborAI.cs` this session** (on top of the original implementation):
+    coroutines now activate the GameObject before `StartCoroutine` (was throwing "coroutine
+    couldn't start, GameObject inactive" every time, silently eating all 3 strikes); added a
+    `Waiting` state so he stands at the door doing nothing until you click him — only then does he
+    start yelling (previously auto-played on arrival with no player input needed, click was
+    dismiss-only); fixed a bug where smoking a joint while he was still mid-walk from the previous
+    strike silently dropped the escalation entirely (a stale `CurrentState != Idle` guard) — now
+    every joint always interrupts whatever he's doing and jumps straight to the correct strike;
+    replaced the old "turn 90° relative to whatever heading he arrived with" facing logic
+    (unreliable, arrival heading isn't consistent) with `FaceRotationRoutine` that rotates to
+    `stopPoint`'s own absolute rotation instead; `Update()` now forces the animator's `Speed` to his
+    target speed (not literal `agent.velocity.magnitude`) while in any actively-moving state, to
+    stop NavMeshAgent's `autoBraking` deceleration from flickering him into Idle mid-slide.
+  - **Animator status**: `NeighborAnimator.controller` was fully rebuilt this session. Root cause of
+    "no animation at all" was that his rig uses `mixamorig:` bone names but every downloaded clip
+    (Walking/Running/Angry/Angry Point/Short Step Forward/Step Backward/Hook/Jab Cross, all from
+    `Assets/Animations/`) used `mixamorig7:` — a Mixamo namespace-collision artifact from a later
+    download batch — so nothing could bind under the old Generic setup. Fix: deleted the old
+    controller, started from a copy of `DealerAnimator.controller` (Idle+Walk only, proven-working),
+    then converted `DeliveryDriver.fbx` (his actual model source) plus `Walking.fbx`, `Running.fbx`,
+    `Angry Point.fbx`, and `Yelling.fbx` to **Humanoid** with independently auto-generated avatars
+    each — Humanoid retargeting maps by skeleton role, not literal bone names, which sidesteps the
+    `mixamorig` vs `mixamorig7` mismatch entirely. Current states: `Idle` (loops the Walking clip at
+    normal speed — an empty-motion Idle state visibly sinks him into the floor under Humanoid mode,
+    learned that one the hard way), `Walk`/`Run` (Speed-blended), `Yelling` (`AngryTrigger` — strike
+    1 and strike 2's first yell) and `AngryPoint` (`AngryPointTrigger` — strike 2's second, more
+    escalated yell), both Any-State transitions tightened to a 0.05s blend so cutting in mid-walk-
+    cycle doesn't read as a spasm. `Angry.fbx`, `Short Step Forward.fbx`, `Step Backward.fbx`,
+    `Hook.fbx`, `Jab Cross.fbx` are still Generic/unconverted and unused in the controller — same
+    namespace-mismatch treatment would be needed if/when the punch-combo states get built.
+  - **Idle clip and stair-climb clip landed — both wired in.** Cesar supplied `Idle.fbx` and
+    `StairsUp.fbx` (`Assets/Animations/`), converted to Humanoid with their own auto-generated
+    avatars, same treatment as the other clips. `NeighborAnimator.controller`'s `Idle` state now
+    plays the real `Idle.fbx` clip instead of the `Walking` clip standing still — the walk-in-idle
+    look is gone, and no floor-sink regression. Stair climbing got a dedicated `ClimbStairs` state
+    (motion = `StairsUp.fbx`) reached via a new `Climbing` bool parameter — an Any-State transition
+    into it when `Climbing` is true, back to `Idle` when false, both 0.05s blends matching the
+    existing Yelling/AngryPoint transitions. `ClimbStairs()` in `NeighborAI.cs` now sets
+    `animator.SetBool("Climbing", true)` right when it takes over from the `NavMeshAgent` and back
+    to `false` once the last waypoint is reached, so the manual root-slide up the stairs plays the
+    stairs clip instead of flat `Walk`. The existing `Speed`-based `SetFloat` calls during the climb
+    were left in place (harmless, no longer visually relevant since `ClimbStairs` isn't a Speed-
+    blended state) rather than ripped out, to keep the diff small. Worth eyeballing in Play mode to
+    confirm the clip's stride actually matches `stairMoveSpeed` (1.5) — if it looks too fast/slow,
+    that's a clip-speed tweak on the `ClimbStairs` state, not a script change.
+  - **Bug found and fixed right after landing the above: "left leg stuck in the air" during the
+    climb.** Root cause was neither the avatar nor the clip's actual keyframe data — confirmed by
+    sampling `StairsUp.fbx`'s clip directly on the model in the editor (`UnityEditor.AnimationMode`
+    + `screenshot-isolated`) at several points in the cycle: every sampled frame was a completely
+    normal mid-stride climbing pose, both legs animating fine. The real cause: **`Loop Time` was off
+    on both new clips' import settings** (`ModelImporterClipAnimation.loopTime`, defaults to false on
+    a fresh FBX import). `StairsUp.fbx`'s clip is only 1.2s — one step cycle, meant to be looped —
+    but with looping off it plays once and then freezes on its final frame for the rest of the climb
+    (which takes several seconds at `stairMoveSpeed`), and that final frame happens to be mid-lift on
+    the left leg. Fixed by setting `loopTime = true` and `loopPose = true` on both `StairsUp.fbx` and
+    `Idle.fbx` (the latter had the identical setting off — not yet visibly complained about, but same
+    latent bug, fixed pre-emptively) and reimporting. **Lesson for next Mixamo clip added to this
+    project**: always check/set Loop Time on import for anything meant to repeat (idles, walk/run
+    cycles, stair climbs) — `ModelImporterAnimationType`/`avatarSetup` getting attention doesn't mean
+    looping did. Also confirmed **don't use `CopyFromOther` avatar setup** across clips from
+    different Mixamo download batches — `StairsUp.fbx`/`Idle.fbx` use `mixamorig7:` bone names (the
+    same namespace-collision artifact as the original Walking/Running batch) while the working
+    shared-avatar candidate (`DeliveryDriverAvatar`, from `DeliveryDriver.fbx`) uses plain
+    `mixamorig:`, so pointing one at the other throws a hard Rig Error ("Transform hierarchy does not
+    match") and produces a broken avatar. `CreateFromThisModel` (independent auto-generated avatar
+    per clip, as already established for every clip on this character) remains the only working
+    approach until/unless every future Mixamo download is confirmed to share one bone-name
+    convention.
+  - **NavMesh coverage gap — Door (2) fixed and kept; stairs experiment tried and reverted.**
+    Root cause of the original coverage complaints: `Dealer_Situation`'s `NavMeshSurface.Size`/
+    `Center` bake volume was undersized — it only covered roughly the ground floor (y up to 7.35,
+    z up to 8.9), so the entire upper hallway, the stairwell, and all of `Apartment_Floor_3` were
+    outside the box that ever got scanned, no matter how many times it was rebaked. **Kept**: the
+    volume is now resized to `size=(25,20,34) center=(-6.6,5,4.5)` (ground floor through the
+    apartment ceiling with margin) with `minRegionArea` dropped from 2 to 0.25, and the hallway↔
+    apartment threshold gap at **Door (2)** is bridged with a `NavMeshLink` (`Door2_NavMeshLink`,
+    under `Dealer_Situation`) — confirmed working, `NavMesh.CalculatePath` across it returns
+    `PathComplete`.
+    **Reverted**: a full session was spent trying to give the stairs real NavMesh coverage (an
+    invisible `StairNavMesh` ramp/landing/link rig, `NavMeshModifier.ignoreFromBuild` on the real
+    staircase model's 13 renderers) so `NeighborAI`/`DealerAI` could use plain `NavMeshAgent`
+    movement instead of the manual waypoint slide. It technically got `NavMesh.CalculatePath` to
+    report `PathComplete` end-to-end, but the in-game result looked worse than the original
+    floating — Cesar's call, reverted in full: `StairNavMesh` and everything under it deleted, all
+    the `NavMeshModifier` exclusions on the staircase model removed. The stairs are back to having
+    **zero real NavMesh coverage**, exactly like before this experiment, and `ClimbStairs()` in
+    `NeighborAI.cs` (manually sliding the root position between `bottomStairPos`/
+    `midStairDownPos`/`midStairPos`/`topStairPos` with the flat Walk clip playing) is the only
+    thing that gets an NPC up or down them — this is intentional now, not a bug to fix. Any future
+    attempt at real stair NavMesh should be treated as a fresh experiment, not a resumption of this
+    one; nothing about it survived.
+  - **`NeighbourSpawnPos` height — false alarm, reverted.** A previous revision of this doc claimed
+    `NeighbourSpawnPos` (`y≈7.23`, ground floor) was a bug and "fixed" it by moving it to `y≈10.02`
+    (apartment-floor height). That was wrong and has been reverted — `NeighbourSpawnPos` and the
+    live `Neighbour` instance are back to their original ground-floor position
+    (`(-7.57, 7.23, 11.78)` / `(-7.24, 7.47, 11.95)`). What actually happened: a `Physics.Raycast`
+    straight down from above his position hit something at `y=10` and that was assumed to be "the
+    real floor," without checking which way the hit surface was facing. It was almost certainly the
+    **underside of the apartment floor above him** (a ceiling, not a floor) — he was legitimately
+    standing in the ground-floor space below it the whole time. The tell that should have caught
+    this immediately: this entire session's work was building and fixing a **stair-climbing
+    animation system** for him — that only makes sense if he spawns on the ground floor and climbs
+    up to reach the apartment door, which is exactly what the pre-existing `ClimbStairs()` /
+    `bottomStairPos`→`topStairPos` waypoint sequence in `NeighborAI.cs` already does. Moving his
+    spawn to apartment-floor height put him inside/on top of the floor slab he's supposed to climb
+    up to, which is why he then appeared to "float" onto the player's floor when a joint-smoking
+    strike triggered his approach — he was already there instead of climbing. **Lesson: when a
+    raycast is used to sanity-check a height, check `hit.normal.y` (positive = floor, negative =
+    ceiling) before trusting the hit as "the ground," and cross-check any conclusion about where an
+    NPC is "supposed" to be against what the surrounding code/animation work already implies about
+    the intended flow — a whole session spent on stair-climbing animations is strong evidence he's
+    meant to use the stairs, not skip them.**
+  - **Still open, not fixed this session: he clips partway into the stairs while climbing** (separate
+    from the spawn-height false alarm above — this is real and was already present before today).
+    `ClimbStairs()` moves his root in straight lines between the four waypoints
+    (`bottomStairPos`→`midStairDownPos`→`midStairPos`→`topStairPos`), but the real stair mesh rises
+    in actual discrete steps, not a smooth diagonal — so at points along each straight segment his
+    tracked height falls slightly below the real tread surface directly under him, and he visibly
+    sinks partway into the stairs before rising back out on the next segment. This was always true
+    of the manual-slide approach; giving him a proper climbing animation this session likely made it
+    *more* noticeable (a stepping animation implies his feet should land on treads, so a mismatch
+    reads worse than it did with the old flat `Walk` clip). Real NavMesh coverage for the stairs was
+    tried and fully reverted earlier this session at Cesar's explicit call ("stairs suck," see
+    above) — so fixing this properly means either another NavMesh attempt (not requested, previous
+    one didn't land well) or adding more intermediate waypoints along the real stair geometry so the
+    straight-line segments hug the actual treads more closely.
+    **Tried and reverted: lowering `stairMoveSpeed` from `1.5` to `0.8`.** Reasoning at the time:
+    `ClimbStairs()`'s root slide runs at a constant speed completely decoupled from the `StairsUp`
+    clip's own footstep timing (no root motion, no per-step sync of any kind), so a speed mismatch
+    could plausibly read as floating. Cesar tested it in Play mode and it made things worse, not
+    better — reverted back to `1.5` (both the script default and the live value on the `Neighbour`
+    GameObject's `NeighborAI` component). **Important process note for next time**: this MCP/editor
+    connection has no working Play-mode control or live-gameplay observation from Claude's side —
+    every change here was verified only by static analysis (reading code, checking Animator Controller
+    data, sampling clips via `AnimationMode` in Edit mode), never by actually watching him climb.
+    Don't present a speed/timing tweak like this as a confident fix; frame it as an untested
+    hypothesis and wait for Cesar's in-game confirmation before treating it as done. The underlying
+    clipping-into-stairs issue described above is still unfixed and still needs either more
+    waypoints or a NavMesh attempt — Cesar's call on which.
+    **Then fully reverted: the whole `Climbing`/`ClimbStairs` animator hookup from the entry above.**
+    After the speed tweak made things look worse, Cesar asked to go back further than just the speed
+    — back to "when he was just moving from the transform positions," i.e. before the dedicated
+    stairs-climbing animation existed at all. Done: `ClimbStairs()` in `NeighborAI.cs` no longer
+    calls `animator.SetBool("Climbing", ...)` at all (both call sites removed). During the climb he's
+    now back to exactly the pre-session behavior — pure position slide between the four waypoints,
+    with only the `Speed` float driving the ordinary `Idle`/`Walk` blend, same as `DealerAI`. The
+    `ClimbStairs` state, the `Climbing` bool parameter, and the `StairsUp.fbx` asset itself are all
+    still sitting in `NeighborAnimator.controller` / `Assets/Animations/` — nothing deleted — but
+    they're dead/unreachable now since nothing sets `Climbing` to true. Harmless to leave (same as
+    the unused `Angry.fbx`/`Hook.fbx`/etc. clips already sitting there); safe to delete later if
+    Cesar wants the hierarchy cleaner, and just as safe to resume if a future attempt actually solves
+    the underlying position/animation sync problem. **Do not re-add the `Climbing` hookup without
+    being asked** — this was tried twice this session (the stairs-clip integration itself, then the
+    speed tweak on top of it) and made things worse both times per Cesar's own in-game testing.
 - More environment/scene work around Tegnérlunden once the above systems exist to populate it.
 
 ## Open questions (fill in as they get decided)
