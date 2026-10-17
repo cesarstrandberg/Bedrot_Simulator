@@ -345,6 +345,44 @@ This is the only animation pipeline available — any NPC/character plan needs t
     the underlying position/animation sync problem. **Do not re-add the `Climbing` hookup without
     being asked** — this was tried twice this session (the stairs-clip integration itself, then the
     speed tweak on top of it) and made things worse both times per Cesar's own in-game testing.
+- **Elevator** (`Elevator` + `ElevatorButton`): imported `Elevator_4.fbx` (single mesh, "Main Body" —
+  the button is not a separate piece, so `ElevatorButton` lives on a hand-placed collider over the
+  panel). Two stops (`upPoint`/`downPoint`, starts up), SmoothStep-eased kinematic-Rigidbody move,
+  child trigger "rider zone" carries the player/loose items by the per-step delta. Audio slots:
+  press/start/move-loop/arrive. No shaft ("shell") around it yet — to be imported later.
+  **Scene wiring done** (`Dealer_Situation/HallWay/HallwayObjects/Elevator`): `Elevator` + kinematic
+  Rigidbody on the root; spots `ElevatorPos_Up` (y 9.95, hallway floor 9.98) / `ElevatorPos_Down`
+  (2.51 lower, ground floor 7.47) as siblings; non-convex `MeshCollider` on `Main Body`; `RiderZone`
+  trigger child on the Ignore Raycast layer (so it never blocks clicks); empty `Audio_Start`/
+  `Audio_MoveLoop`/`Audio_Arrive` sources; `buttonInside` tagged `Interactable` with BoxCollider +
+  `ElevatorButton` (placeholder press clip `LightSwitch.mp3`). `buttonOutside` exists but is unwired —
+  it's a child of the cab, so it rides away with it; a real call button needs to live on the wall.
+  - Button clicks go through `PlayerInteraction`'s crosshair raycast (`ElevatorButton.Press()`), not
+    `OnMouseDown`: the button is a child of the elevator's Rigidbody, and Unity routes mouse events
+    for a Rigidbody's colliders to the Rigidbody's GameObject, so `OnMouseDown` on the button never
+    fired (crosshair still went red). Any future clickable parented under a Rigidbody has the same trap.
+  - **The stairs are gone — the elevator replaced them for NPCs too.** `DealerAI`/`DeliveryDriverAI`/
+    `NeighborAI` no longer have `bottomStairPos`…`topStairPos` or `ClimbStairs()`; all the stair notes
+    in the Neighbor section above are historical. Each now has an `elevator` field and a
+    `RideElevator(toUp)` that NavMeshes to `npcOutsideDown`/`npcOutsideUp`, then hands off to the
+    shared `Elevator.RideNpc()` (call it to his floor → slide to `npcInsideSpot` → ride → slide out),
+    then re-enables the agent and Warps it at the other door. While an NPC calls/rides it the elevator
+    is reserved (`IsReserved`, self-expiring after 1s without refresh so an interrupted neighbour
+    coroutine can't lock it) and the player's button does nothing. The old `Dealer_*StairPos`
+    markers are still in the scene, unused.
+  - **"Walks a few steps then floats" — root cause was Loop Time again**, not NavMesh/speed/spawn:
+    `Walking.fbx` (1.03s) and `Running.fbx` (0.70s) for the Neighbour, and `DrugDealer.fbx`'s walk
+    clip (Dealer + DeliveryDriver), all had `loopTime` off, so every Walk/Run entry played one cycle
+    then froze on the last frame while the agent kept sliding. All three now `loopTime`/`loopPose` on.
+  - **Neighbour "floating back" from the door**: Yelling (7.83s) / AngryPoint (2.43s) only exit to
+    Idle via exit time, and he started walking as soon as the subtitles ended. `NeighborAI.
+    WaitForGestureToFinish()` now holds him (before `LeaveToSpawn` and before the strike-2 retreat)
+    until the gesture state is done.
+  - Hallway NavMesh sits ~0.12 above the floor collider in front of the elevator — that's the
+    collider-less `SM_Carpet_02` render mesh (top 10.06) getting baked (`useGeometry=RenderMeshes`),
+    so he's walking on the carpet, not hovering. Not a bug.
+  - Play-mode testing through the MCP doesn't work unattended: game time doesn't advance while the
+    Unity window is unfocused, so traces just show a frozen NPC.
 - More environment/scene work around Tegnérlunden once the above systems exist to populate it.
 
 ## Open questions (fill in as they get decided)

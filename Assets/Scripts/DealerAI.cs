@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.Serialization;
 
 public class DealerAI : MonoBehaviour
 {
@@ -11,16 +12,12 @@ public class DealerAI : MonoBehaviour
     public GameObject weedJarInHand; // Jar-modellen i handen (valfri, kan lämnas tom)
     public DrugSite drugSite;
 
-    [Header("Trappa (ingen NavMesh där - flyttas manuellt istället)")]
-    // Ordningen han passerar dem i på väg UPP. På väg ner går han dem i omvänd ordning.
-    // NavMesh täcker spawn -> bottomStairPos och topStairPos -> stopPoint. Lämna tomma
-    // (bottomStairPos == null) för att köra rent NavMesh som förut.
-    public Transform bottomStairPos;
-    public Transform midStairDownPos;
-    public Transform midStairPos;
-    public Transform topStairPos;
-    public float stairMoveSpeed = 1.5f;
-    public float stairTurnSpeed = 6f;
+    [Header("Hiss (ersätter trappan - ingen NavMesh i hissen, han glider in/ut manuellt)")]
+    // NavMesh täcker spawn -> hissdörren nere och hissdörren uppe -> stopPoint.
+    // Lämna tom för att köra rent NavMesh.
+    public Elevator elevator;
+    [FormerlySerializedAs("stairMoveSpeed")] public float elevatorWalkSpeed = 1.5f;
+    [FormerlySerializedAs("stairTurnSpeed")] public float elevatorTurnSpeed = 6f;
 
     [Header("Ljud")]
     public AudioSource audioSource;
@@ -89,7 +86,7 @@ public class DealerAI : MonoBehaviour
 
     void Update()
     {
-        // Under trappklättringen (agent.enabled == false) sätts Speed manuellt i ClimbStairs istället.
+        // I hissen (agent.enabled == false) sätts Speed manuellt i Elevator.RideNpc istället.
         if (animator != null && agent != null && agent.enabled)
         {
             currentSpeed = agent.velocity.magnitude;
@@ -200,17 +197,7 @@ public class DealerAI : MonoBehaviour
 
     IEnumerator ApproachRoutine()
     {
-        if (bottomStairPos != null)
-        {
-            agent.SetDestination(bottomStairPos.position);
-            yield return WaitUntilArrived();
-
-            yield return ClimbStairs(bottomStairPos, midStairDownPos, midStairPos, topStairPos);
-
-            agent.enabled = true;
-            agent.Warp(topStairPos.position);
-            agent.isStopped = false;
-        }
+        yield return RideElevator(true);
 
         agent.SetDestination(stopPoint.position);
         yield return WaitUntilArrived();
@@ -261,17 +248,7 @@ public class DealerAI : MonoBehaviour
 
     IEnumerator LeaveRoutine()
     {
-        if (topStairPos != null)
-        {
-            agent.SetDestination(topStairPos.position);
-            yield return WaitUntilArrived();
-
-            yield return ClimbStairs(topStairPos, midStairPos, midStairDownPos, bottomStairPos);
-
-            agent.enabled = true;
-            agent.Warp(bottomStairPos.position);
-            agent.isStopped = false;
-        }
+        yield return RideElevator(false);
 
         agent.SetDestination(spawnPosition);
         yield return WaitUntilArrived();
@@ -289,41 +266,23 @@ public class DealerAI : MonoBehaviour
         }
     }
 
-    // Flyttar honom manuellt (ingen NavMesh) genom en serie punkter på trappan.
-    // Animationen fortsätter som vanligt eftersom Speed sätts utifrån hur långt han faktiskt rör sig per frame.
-    IEnumerator ClimbStairs(params Transform[] waypoints)
+    // Går (NavMesh) fram till hissdörren, sen tar Elevator.RideNpc över: kallar hissen, glider in,
+    // åker, glider ut. Därefter NavMesh igen från dörren på andra våningen.
+    IEnumerator RideElevator(bool toUp)
     {
+        if (elevator == null) yield break;
+
+        agent.SetDestination(elevator.NpcOutsideSpot(!toUp).position);
+        yield return WaitUntilArrived();
+
         agent.isStopped = true;
         agent.enabled = false;
-
-        foreach (var point in waypoints)
-        {
-            if (point == null) continue;
-
-            while (Vector3.Distance(transform.position, point.position) > 0.05f)
-            {
-                Vector3 fromPos = transform.position;
-                transform.position = Vector3.MoveTowards(transform.position, point.position, stairMoveSpeed * Time.deltaTime);
-
-                Vector3 moveDelta = transform.position - fromPos;
-
-                // Bara horisontell riktning för rotationen - annars lutar han nosen neråt i trappan
-                // istället för att gå upprätt medan kroppen glider ner/upp.
-                Vector3 flatDelta = new Vector3(moveDelta.x, 0f, moveDelta.z);
-                if (flatDelta.sqrMagnitude > 0.0001f)
-                {
-                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(flatDelta.normalized), stairTurnSpeed * Time.deltaTime);
-                }
-
-                currentSpeed = moveDelta.magnitude / Time.deltaTime;
-                if (animator != null) animator.SetFloat("Speed", currentSpeed);
-
-                yield return null;
-            }
-        }
+        yield return elevator.RideNpc(transform, animator, toUp, elevatorWalkSpeed, elevatorTurnSpeed);
 
         currentSpeed = 0f;
-        if (animator != null) animator.SetFloat("Speed", 0f);
+        agent.enabled = true;
+        agent.Warp(elevator.NpcOutsideSpot(toUp).position);
+        agent.isStopped = false;
     }
 
     // Vrider honom ETT extra steg när han når Dealer_StopPos, oavsett vilket håll han gick in ifrån

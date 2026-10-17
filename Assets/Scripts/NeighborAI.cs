@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.Serialization;
 
 public class NeighborAI : MonoBehaviour
 {
@@ -13,13 +14,12 @@ public class NeighborAI : MonoBehaviour
     public Transform attackPoint;        // His hand bone - how close this needs to get to the player to "catch" them
     public float attackRadius = 1.2f;
 
-    [Header("Trappa (ingen NavMesh där - flyttas manuellt istället)")]
-    public Transform bottomStairPos;
-    public Transform midStairDownPos;
-    public Transform midStairPos;
-    public Transform topStairPos;
-    public float stairMoveSpeed = 1.5f;
-    public float stairTurnSpeed = 6f;
+    [Header("Hiss (ersätter trappan - ingen NavMesh i hissen, han glider in/ut manuellt)")]
+    // NavMesh täcker spawn -> hissdörren nere och hissdörren uppe -> stopPoint.
+    // Lämna tom för att köra rent NavMesh.
+    public Elevator elevator;
+    [FormerlySerializedAs("stairMoveSpeed")] public float elevatorWalkSpeed = 1.5f;
+    [FormerlySerializedAs("stairTurnSpeed")] public float elevatorTurnSpeed = 6f;
 
     [Header("Movement speeds")]
     public float walkSpeed = 1.5f;
@@ -33,6 +33,10 @@ public class NeighborAI : MonoBehaviour
     public float footstepInterval = 0.45f;
     [Range(0f, 1f)] public float footstepVolume = 0.15f;
     [Range(0f, 1f)] public float knockVolume = 0.7f;
+    // Footsteps play from their own fully-3D source (built in Awake) so they fade with distance
+    // instead of echoing through the whole building at full volume like a 2D source does.
+    [Range(0f, 1f)] public float footstepLoudness = 0.3f; // Multiplies footstepVolume on top
+    public float footstepMaxDistance = 10f;               // Silent beyond this many meters
 
     [Header("Dialogue")]
     public DialogueSubtitle dialogueSubtitle;
@@ -59,6 +63,7 @@ public class NeighborAI : MonoBehaviour
     private bool hasCaughtPlayer;
     private bool waitingForInteract;
     private Coroutine activeRoutine;
+    private AudioSource footstepSource;
 
     void Awake()
     {
@@ -66,6 +71,15 @@ public class NeighborAI : MonoBehaviour
         animator = GetComponentInChildren<Animator>();
         spawnPosition = transform.position;
         spawnRotation = transform.rotation;
+
+        footstepSource = gameObject.AddComponent<AudioSource>();
+        footstepSource.playOnAwake = false;
+        footstepSource.spatialBlend = 1f;
+        footstepSource.rolloffMode = AudioRolloffMode.Linear;
+        footstepSource.minDistance = 1f;
+        footstepSource.maxDistance = footstepMaxDistance;
+        footstepSource.reverbZoneMix = 0f;
+        if (audioSource != null) footstepSource.outputAudioMixerGroup = audioSource.outputAudioMixerGroup;
 
         gameObject.SetActive(false);
     }
@@ -96,14 +110,14 @@ public class NeighborAI : MonoBehaviour
 
     void UpdateFootsteps()
     {
-        if (audioSource == null || footstepSound == null) return;
+        if (footstepSource == null || footstepSound == null) return;
 
         if (currentSpeed > 0.1f)
         {
             footstepTimer -= Time.deltaTime;
             if (footstepTimer <= 0f)
             {
-                audioSource.PlayOneShot(footstepSound, footstepVolume);
+                footstepSource.PlayOneShot(footstepSound, footstepVolume * footstepLoudness);
                 footstepTimer = footstepInterval;
             }
         }
@@ -189,6 +203,7 @@ public class NeighborAI : MonoBehaviour
         if (animator != null) animator.SetTrigger("AngryTrigger");
         if (dialogueSubtitle != null) yield return StartCoroutine(dialogueSubtitle.PlayRoutine(strike2LinesFirst));
 
+        yield return WaitForGestureToFinish();
         CurrentState = NeighborState.Retreating;
         agent.updateRotation = true;
         agent.isStopped = false;
@@ -247,7 +262,7 @@ public class NeighborAI : MonoBehaviour
         }
     }
 
-    // Walks him from spawn up the stairs to stopPoint. Shared by the strike 1/2 approach and the
+    // Walks him from spawn, up in the elevator, to stopPoint. Shared by the strike 1/2 approach and the
     // strike 3+ charge (just called with a different speed).
     IEnumerator ClimbToStopPoint(float speed)
     {
@@ -262,17 +277,7 @@ public class NeighborAI : MonoBehaviour
         agent.updateRotation = true;
         CurrentState = NeighborState.Approaching;
 
-        if (bottomStairPos != null)
-        {
-            agent.SetDestination(bottomStairPos.position);
-            yield return WaitUntilArrived();
-
-            yield return ClimbStairs(bottomStairPos, midStairDownPos, midStairPos, topStairPos);
-
-            agent.enabled = true;
-            agent.Warp(topStairPos.position);
-            agent.isStopped = false;
-        }
+        yield return RideElevator(true);
 
         agent.SetDestination(stopPoint.position);
         yield return WaitUntilArrived();
@@ -298,24 +303,32 @@ public class NeighborAI : MonoBehaviour
         yield return new WaitUntil(() => !waitingForInteract);
     }
 
+    // Yelling/AngryPoint only hand back to Idle via exit time (near the end of the clip), so if he
+    // starts walking before that he slides off across the floor still mid-gesture - the "floating
+    // away" look. Let the gesture play out first, then walk.
+    IEnumerator WaitForGestureToFinish()
+    {
+        if (animator == null) yield break;
+        yield return null; // a trigger set this frame hasn't been picked up by the animator yet
+
+        while (animator.IsInTransition(0)
+            || animator.GetCurrentAnimatorStateInfo(0).IsName("Yelling")
+            || animator.GetCurrentAnimatorStateInfo(0).IsName("AngryPoint"))
+        {
+            yield return null;
+        }
+    }
+
     IEnumerator LeaveToSpawn()
     {
+        yield return WaitForGestureToFinish();
+
         CurrentState = NeighborState.Leaving;
         agent.updateRotation = true;
         agent.isStopped = false;
         agent.speed = walkSpeed;
 
-        if (topStairPos != null)
-        {
-            agent.SetDestination(topStairPos.position);
-            yield return WaitUntilArrived();
-
-            yield return ClimbStairs(topStairPos, midStairPos, midStairDownPos, bottomStairPos);
-
-            agent.enabled = true;
-            agent.Warp(bottomStairPos.position);
-            agent.isStopped = false;
-        }
+        yield return RideElevator(false);
 
         agent.SetDestination(spawnPosition);
         yield return WaitUntilArrived();
@@ -332,37 +345,23 @@ public class NeighborAI : MonoBehaviour
         }
     }
 
-    IEnumerator ClimbStairs(params Transform[] waypoints)
+    // Går (NavMesh) fram till hissdörren, sen tar Elevator.RideNpc över: kallar hissen, glider in,
+    // åker, glider ut. Därefter NavMesh igen från dörren på andra våningen.
+    IEnumerator RideElevator(bool toUp)
     {
+        if (elevator == null) yield break;
+
+        agent.SetDestination(elevator.NpcOutsideSpot(!toUp).position);
+        yield return WaitUntilArrived();
+
         agent.isStopped = true;
         agent.enabled = false;
-
-        foreach (var point in waypoints)
-        {
-            if (point == null) continue;
-
-            while (Vector3.Distance(transform.position, point.position) > 0.05f)
-            {
-                Vector3 fromPos = transform.position;
-                transform.position = Vector3.MoveTowards(transform.position, point.position, stairMoveSpeed * Time.deltaTime);
-
-                Vector3 moveDelta = transform.position - fromPos;
-
-                Vector3 flatDelta = new Vector3(moveDelta.x, 0f, moveDelta.z);
-                if (flatDelta.sqrMagnitude > 0.0001f)
-                {
-                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(flatDelta.normalized), stairTurnSpeed * Time.deltaTime);
-                }
-
-                currentSpeed = moveDelta.magnitude / Time.deltaTime;
-                if (animator != null) animator.SetFloat("Speed", currentSpeed);
-
-                yield return null;
-            }
-        }
+        yield return elevator.RideNpc(transform, animator, toUp, elevatorWalkSpeed, elevatorTurnSpeed);
 
         currentSpeed = 0f;
-        if (animator != null) animator.SetFloat("Speed", 0f);
+        agent.enabled = true;
+        agent.Warp(elevator.NpcOutsideSpot(toUp).position);
+        agent.isStopped = false;
     }
 
     // Smoothly rotates to an absolute target rotation (stopPoint.rotation) instead of turning a

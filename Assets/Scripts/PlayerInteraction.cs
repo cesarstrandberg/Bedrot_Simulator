@@ -165,6 +165,12 @@ public class PlayerInteraction : MonoBehaviour
                 {
                     clickable.DoClick(); // Säg åt föremålet att det blev klickat på!
                 }
+
+                ElevatorButton elevatorButton = interactableObject.GetComponent<ElevatorButton>();
+                if (elevatorButton != null)
+                {
+                    elevatorButton.Press();
+                }
             }
         }
     }
