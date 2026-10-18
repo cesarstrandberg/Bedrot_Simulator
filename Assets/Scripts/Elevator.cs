@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 // Two-stop elevator: sits at either upPoint or downPoint and eases smoothly between them.
 // Moves as a kinematic Rigidbody in FixedUpdate so physics bodies standing on its floor (the
@@ -19,9 +20,9 @@ public class Elevator : MonoBehaviour
     public float departDelay = 1f;         // pause after pressing the button before it starts moving
 
     [Header("Ljud")]
-    public AudioSource startSound;         // clunk when it starts moving
-    public AudioSource moveLoopSound;      // motor hum, set to Loop on the AudioSource
-    public AudioSource arriveSound;        // ding/clunk when it arrives
+    // One sound for the whole trip: starts when it starts moving and is left to play out (not looped,
+    // not cut off on arrival). Keep travelTime about the clip's length so they finish together.
+    [FormerlySerializedAs("moveLoopSound")] public AudioSource moveSound;
 
     [Header("NPC-åkning (Dealer/Delivery/Neighbour)")]
     public Transform npcInsideSpot;        // child of the elevator, where an NPC stands while riding (faces the door)
@@ -64,6 +65,10 @@ public class Elevator : MonoBehaviour
     public void GoUp() { if (!IsUp && !IsMoving) StartCoroutine(MoveRoutine(upPoint, true)); }
 
     public Transform NpcOutsideSpot(bool up) => up ? npcOutsideUp : npcOutsideDown;
+
+    // Which floor a button is on. Stops are at floor level and buttons sit ~1.2m up the wall, hence
+    // the +1 on top of the halfway point between the two stops.
+    public bool IsButtonOnUpperFloor(Vector3 worldPos) => worldPos.y > (upPoint.position.y + downPoint.position.y) * 0.5f + 1f;
 
     bool TryReserve(Object who)
     {
@@ -146,8 +151,7 @@ public class Elevator : MonoBehaviour
         IsMoving = true;
         yield return new WaitForSeconds(departDelay);
 
-        if (startSound != null) startSound.Play();
-        if (moveLoopSound != null) moveLoopSound.Play();
+        if (moveSound != null) moveSound.Play();
 
         Vector3 from = rb.position;
         Vector3 to = target.position;
@@ -159,9 +163,6 @@ public class Elevator : MonoBehaviour
             t = Mathf.Min(1f, t + Time.fixedDeltaTime / Mathf.Max(0.01f, travelTime));
             MoveTo(Vector3.Lerp(from, to, Mathf.SmoothStep(0f, 1f, t)));
         }
-
-        if (moveLoopSound != null) moveLoopSound.Stop();
-        if (arriveSound != null) arriveSound.Play();
 
         IsUp = endsUp;
         IsMoving = false;

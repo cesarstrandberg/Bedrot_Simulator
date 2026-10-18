@@ -13,6 +13,7 @@ public class NeighborAI : MonoBehaviour
     public PlayerStats playerStats;
     public Transform attackPoint;        // His hand bone - how close this needs to get to the player to "catch" them
     public float attackRadius = 1.2f;
+    public GameObject batInHand;         // Child of his right hand bone, only shown for the strike 3+ charge
 
     [Header("Hiss (ersätter trappan - ingen NavMesh i hissen, han glider in/ut manuellt)")]
     // NavMesh täcker spawn -> hissdörren nere och hissdörren uppe -> stopPoint.
@@ -43,6 +44,11 @@ public class NeighborAI : MonoBehaviour
     public DialogueSubtitle.Line[] strike1Lines;
     public DialogueSubtitle.Line[] strike2LinesFirst;
     public DialogueSubtitle.Line[] strike2LinesSecond;
+
+    [Header("Röst (gibberish, en fil per block - lika lång som blockets repliker + pauser)")]
+    public AudioClip strike1Voice;
+    public AudioClip strike2FirstVoice;
+    public AudioClip strike2SecondVoice;
 
     [Header("Rotation vid stopPoint")]
     // Faces stopPoint's own rotation directly rather than a relative turn from whatever heading he
@@ -81,6 +87,7 @@ public class NeighborAI : MonoBehaviour
         footstepSource.reverbZoneMix = 0f;
         if (audioSource != null) footstepSource.outputAudioMixerGroup = audioSource.outputAudioMixerGroup;
 
+        if (batInHand != null) batInHand.SetActive(false);
         gameObject.SetActive(false);
     }
 
@@ -148,7 +155,11 @@ public class NeighborAI : MonoBehaviour
         // mid-walk/mid-yell is safe.
         if (activeRoutine != null) StopCoroutine(activeRoutine);
         if (dialogueSubtitle != null) dialogueSubtitle.Stop();
+        StopVoice();
         waitingForInteract = false;
+
+        // The bat only comes out for the charge - put away again if a routine restarts on strike 1/2.
+        if (batInHand != null) batInHand.SetActive(jointsSmoked >= 3);
 
         if (jointsSmoked >= 3)
         {
@@ -181,6 +192,7 @@ public class NeighborAI : MonoBehaviour
 
         if (activeRoutine != null) StopCoroutine(activeRoutine);
         if (dialogueSubtitle != null) dialogueSubtitle.Stop();
+        StopVoice();
         activeRoutine = StartCoroutine(LeaveToSpawn());
     }
 
@@ -190,6 +202,7 @@ public class NeighborAI : MonoBehaviour
 
         CurrentState = NeighborState.Yelling;
         if (animator != null) animator.SetTrigger("AngryTrigger");
+        PlayVoice(strike1Voice);
         if (dialogueSubtitle != null) yield return StartCoroutine(dialogueSubtitle.PlayRoutine(strike1Lines));
 
         yield return LeaveToSpawn();
@@ -201,6 +214,7 @@ public class NeighborAI : MonoBehaviour
 
         CurrentState = NeighborState.Yelling;
         if (animator != null) animator.SetTrigger("AngryTrigger");
+        PlayVoice(strike2FirstVoice);
         if (dialogueSubtitle != null) yield return StartCoroutine(dialogueSubtitle.PlayRoutine(strike2LinesFirst));
 
         yield return WaitForGestureToFinish();
@@ -223,6 +237,7 @@ public class NeighborAI : MonoBehaviour
         CurrentState = NeighborState.Yelling;
         // More escalated the second time round - the pointing/finger-jabbing variant.
         if (animator != null) animator.SetTrigger("AngryPointTrigger");
+        PlayVoice(strike2SecondVoice);
         if (dialogueSubtitle != null) yield return StartCoroutine(dialogueSubtitle.PlayRoutine(strike2LinesSecond));
 
         yield return LeaveToSpawn();
@@ -301,6 +316,24 @@ public class NeighborAI : MonoBehaviour
         CurrentState = NeighborState.Waiting;
         waitingForInteract = true;
         yield return new WaitUntil(() => !waitingForInteract);
+    }
+
+    // Each voice clip is built to the exact length of its subtitle block (pauses included), so it
+    // just starts alongside the subtitles - no slicing like DealerAI's single long take.
+    void PlayVoice(AudioClip clip)
+    {
+        if (audioSource == null || clip == null) return;
+        audioSource.Stop();
+        audioSource.clip = clip;
+        audioSource.Play();
+    }
+
+    // Cut off mid-sentence when he's interrupted (new strike, or clicked away while yelling).
+    void StopVoice()
+    {
+        if (audioSource == null) return;
+        if (audioSource.clip == strike1Voice || audioSource.clip == strike2FirstVoice || audioSource.clip == strike2SecondVoice)
+            audioSource.Stop();
     }
 
     // Yelling/AngryPoint only hand back to Idle via exit time (near the end of the clip), so if he
