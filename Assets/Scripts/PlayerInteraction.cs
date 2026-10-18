@@ -455,6 +455,14 @@ public class PlayerInteraction : MonoBehaviour
             Destroy(objectToDrop.GetComponent<ConsumableItem>());
         }
 
+        // Hands are empty now. The dropped butt was left in heldObject, which made the game think
+        // you were still holding it: no crosshair raycast at all, so nothing (elevator buttons
+        // included) could be clicked again until you pressed E.
+        heldObject = null;
+        heldObjectRb = null;
+        heldObjectCollider = null;
+        isHoldingGeneralItem = false;
+
         if (activeArm != null)
         {
             activeArm.gameObject.SetActive(false);

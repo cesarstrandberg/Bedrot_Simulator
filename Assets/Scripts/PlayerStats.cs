@@ -33,10 +33,16 @@ public class PlayerStats : MonoBehaviour
 
     private PlayerMovement movementScript;
     private bool hasPassedOut = false;
+    private bool isHeld = false;            // Göran has you - frozen, turned to face him, waiting for the bat
+    private Quaternion heldCamRot;          // Camera rotation from before the hold, restored on wake-up
+
+    public bool IsPassedOut => hasPassedOut;
 
     void Start()
     {
-        movementScript = GetComponent<PlayerMovement>();
+        // PlayerStats lives on the camera, PlayerMovement on its parent Player - plain GetComponent
+        // came back null, so the pass-out never actually stopped the player walking.
+        movementScript = GetComponentInParent<PlayerMovement>();
         if (fadeImage != null)
         {
             Color c = fadeImage.color;
@@ -94,7 +100,7 @@ public class PlayerStats : MonoBehaviour
         }
 
         // 3. KOLLA OM VI SKA DÄCKA (Av fylla, weed, hunger eller törst!)
-        if (drunkLevel >= 1.0f || highLevel >= 1.05f || thirst >= 100f)
+        if (!isHeld && (drunkLevel >= 1.0f || highLevel >= 1.05f || thirst >= 100f))
         {
             StartCoroutine(PassOutSequence());
         }
@@ -116,7 +122,52 @@ public class PlayerStats : MonoBehaviour
     // until a dedicated "knocked out by the neighbor" beat gets designed).
     public void KnockedOut()
     {
-        if (!hasPassedOut) StartCoroutine(PassOutSequence());
+        if (!hasPassedOut) StartCoroutine(PassOutSequence(true));
+    }
+
+    // Göran caught you: freeze in place and turn to face him while he delivers his line, until
+    // KnockedOut() lands the hit. No-op if you're already passing out on your own.
+    public void HoldForHit(Transform attacker)
+    {
+        if (hasPassedOut || isHeld) return;
+        isHeld = true;
+        heldCamRot = playerCamera.localRotation;
+        FreezePlayer();
+        StartCoroutine(FaceAttacker(attacker));
+    }
+
+    IEnumerator FaceAttacker(Transform attacker)
+    {
+        MouseLook mouseLook = playerCamera.GetComponent<MouseLook>();
+        Transform body = mouseLook != null ? mouseLook.playerBody : null;
+
+        while (isHeld && attacker != null)
+        {
+            if (body != null)
+            {
+                Vector3 dir = attacker.position - body.position;
+                dir.y = 0f;
+                if (dir.sqrMagnitude > 0.01f)
+                    body.rotation = Quaternion.Slerp(body.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 4f);
+            }
+            // Look up at his face (~1.6m up on him)
+            Vector3 toFace = attacker.position + Vector3.up * 1.6f - playerCamera.position;
+            float pitch = -Mathf.Atan2(toFace.y, new Vector2(toFace.x, toFace.z).magnitude) * Mathf.Rad2Deg;
+            playerCamera.localRotation = Quaternion.Slerp(playerCamera.localRotation, Quaternion.Euler(pitch, 0f, 0f), Time.deltaTime * 4f);
+            yield return null;
+        }
+    }
+
+    void FreezePlayer()
+    {
+        if (movementScript != null)
+        {
+            movementScript.enabled = false;
+            Rigidbody rb = movementScript.GetComponent<Rigidbody>();
+            if (rb != null) rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
+        }
+        MouseLook mouseLook = playerCamera.GetComponent<MouseLook>();
+        if (mouseLook != null) mouseLook.isPassingOut = true;
     }
 
     public void DrinkBeer()
@@ -136,19 +187,19 @@ public class PlayerStats : MonoBehaviour
     // ========================================================
     // SEKVENS: YRSEL, FALL, SPYA, SIDLÄNGES, FADE & SOV
     // ========================================================
-    IEnumerator PassOutSequence()
+    // knockedOut = hit by Göran's bat: skips the dizzy spell and the puke, drops straight to the floor.
+    IEnumerator PassOutSequence(bool knockedOut = false)
     {
         hasPassedOut = true;
-        if (movementScript != null) movementScript.enabled = false;
-
+        FreezePlayer();
         MouseLook mouseLook = playerCamera.GetComponent<MouseLook>();
-        if (mouseLook != null) mouseLook.isPassingOut = true;
 
         Vector3 originalCamPos = playerCamera.localPosition;
-        Quaternion originalCamRot = playerCamera.localRotation;
+        Quaternion originalCamRot = isHeld ? heldCamRot : playerCamera.localRotation;
+        isHeld = false; // stops FaceAttacker
 
         float dizzynessTime = 0f;
-        float dizzynessDuration = 5.0f;
+        float dizzynessDuration = knockedOut ? 0f : 5.0f;
 
         while (dizzynessTime < dizzynessDuration)
         {
@@ -166,7 +217,7 @@ public class PlayerStats : MonoBehaviour
         }
 
         float elapsedTime = 0f;
-        float fallDuration = 1.0f;
+        float fallDuration = knockedOut ? 0.25f : 1.0f;
 
         Vector3 startPos = playerCamera.localPosition;
         Vector3 kneePos = new Vector3(startPos.x, startPos.y - 1.0f, startPos.z);
@@ -182,9 +233,9 @@ public class PlayerStats : MonoBehaviour
         playerCamera.localPosition = kneePos;
         playerCamera.localRotation = kneeRot;
 
-        yield return new WaitForSeconds(0.3f);
+        if (!knockedOut) yield return new WaitForSeconds(0.3f);
 
-        if (pukePrefab != null)
+        if (pukePrefab != null && !knockedOut)
         {
             RaycastHit hit;
             Vector3 spawnPos;
@@ -199,10 +250,10 @@ public class PlayerStats : MonoBehaviour
             if (pukeSound != null) AudioSource.PlayClipAtPoint(pukeSound, spawnPos, 1.0f);
         }
 
-        yield return new WaitForSeconds(1.5f);
+        if (!knockedOut) yield return new WaitForSeconds(1.5f);
 
         elapsedTime = 0f;
-        float sleepFallDuration = 1.0f;
+        float sleepFallDuration = knockedOut ? 0.35f : 1.0f;
         Vector3 floorPos = new Vector3(kneePos.x, kneePos.y - 0.4f, kneePos.z);
         Quaternion floorRot = Quaternion.Euler(15f, 0f, 85f);
 
@@ -233,6 +284,9 @@ public class PlayerStats : MonoBehaviour
             fadeImage.color = imgColor;
         }
 
+        // Screen is fully black: send Göran home and reset his strikes so he's gone on wake-up.
+        if (neighbor != null) neighbor.OnPlayerBlackedOut();
+
         float sleepTimer = 0f;
         while (sleepTimer < sleepDuration)
         {
@@ -248,6 +302,8 @@ public class PlayerStats : MonoBehaviour
         thirst = 0f;
         hunger = 30f; // Vakna upp lite hungrig
         craving = 0f;
+        // Kill the green high filter now instead of letting Update() fade it out slowly after waking.
+        if (highVolume != null) highVolume.weight = 0f;
 
         elapsedTime = 0f;
         if (fadeImage != null)

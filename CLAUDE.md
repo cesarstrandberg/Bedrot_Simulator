@@ -168,8 +168,23 @@ This is the only animation pipeline available — any NPC/character plan needs t
     and slightly forward. Hidden in `Awake`, shown by `OnJointSmoked()` only when `jointsSmoked >= 3`
     (hidden again if a routine restarts on strike 1/2). He has no finger bones (Mixamo auto-rig), so
     the grip was placed by eye from rendered checks, not computed from fingers. Not done yet: a
-    bat-holding run clip (his Run swings both arms, so the bat swings with it) and a swing animation
-    on catch — the knockout still just fires on reaching `attackRadius`. He's called Göran.
+    bat-holding run clip (his Run swings both arms, so the bat swings with it). He's called Göran.
+  - **The catch (American Psycho homage)**: on reaching `attackRadius` (or getting within 1.6m of a
+    player who already blacked out from the 4th joint) `NeighborAI.AttackRoutine()` stops him dead,
+    calls `PlayerStats.HoldForHit()` (player frozen, turned to face him), plays `knockoutLine`
+    (`try-getting-a-reservation-at-dorsia-...mp3`, 5.6s) and fires `SwingTrigger` (`Swing` state,
+    `PatrickHit.fbx` = Mixamo "Standing Melee Attack Downward", Humanoid) so the bat lands
+    `swingImpactTime` (0.95s) into the swing = right on "bastard", then `KnockedOut()` →
+    `PassOutSequence(knockedOut: true)`: no dizzy spell/puke, fast drop to the floor, fade.
+    To keep the frozen stare short he starts the line while still running in (`lineStartDistance`,
+    6m; cut and restarted if you get >4m further away), and the swing is timed to whatever's left of
+    it. `HitThud.wav` (Claude-generated, 0.5s low body thump) plays at impact (`hitThudVolume` 0.6).
+  - **After any blackout** (whatever caused it) `PlayerStats` calls `NeighborAI.OnPlayerBlackedOut()`
+    while the screen is black: he finishes the Dorsia line if it's still playing, then is warped
+    home and deactivated, bat hidden, and `jointsSmoked` resets to 0 — a blackout is the strike reset
+    for now. The green high filter (`highVolume.weight`) is also snapped to 0 there instead of fading
+    slowly after waking. Also fixed: `PlayerStats` is on the camera but `PlayerMovement` on its parent,
+    so `GetComponent` was null and passing out never froze movement — now `GetComponentInParent`.
     Otherwise he has a bare-handed moveset:
     `Idle`/`Walk`/`Run` (speed-blended, `NeighborAnimator.controller`) plus one-shot `Angry`/
     `AngryPoint` (wired to the yelling beats above) and `StepForward`/`StepBack`/`JabCross`/`Hook`
@@ -405,6 +420,10 @@ This is the only animation pipeline available — any NPC/character plan needs t
     To actually see/test a pillar call button, the cab has to be on the other floor (e.g. an NPC
     left it there, or untick `startsUp`). `HallwayObjects` has scale (4.69, 0.2, 2.9): anything parented under it
     needs its localScale compensated or it comes out squashed.
+  - "Buttons dead after Göran's 3rd visit" was not the elevator: `PlayerInteraction.ConsumeRoutine`
+    dropped the joint butt but left it in `heldObject`, so after *every* joint the player counted as
+    holding something and the crosshair raycast never ran (nothing clickable until pressing E).
+    Fixed by clearing `heldObject`/`heldObjectRb`/`heldObjectCollider` after consuming.
   - Play-mode testing through the MCP doesn't work unattended: game time doesn't advance while the
     Unity window is unfocused, so traces just show a frozen NPC.
 - More environment/scene work around Tegnérlunden once the above systems exist to populate it.
@@ -415,9 +434,8 @@ This is the only animation pipeline available — any NPC/character plan needs t
 - What does "going rogue" actually change mechanically (new stats, new locations, NPC reactions)?
 - How many lecture "days" happen before the story hands control over to the sandbox?
 - What does the neighbor's strike counter reset against once a day/sleep/world-time system exists?
-- What happens after the neighbor's charge resolves — whether he catches the player (`KnockedOut()`)
-  or the player blacks out first from the 4th joint — with him now standing in the apartment: does
-  he leave once the player's passed out, wait, trigger something on wake-up?
+- Neighbor aftermath beyond the current placeholder (he goes home + strikes reset during the
+  blackout): should waking up after his hit cost something (money, injury, stuff stolen/broken)?
 - Punch-combo timing: when exactly during the charge should `JabCross`/`Hook`/`StepForward`/
   `StepBack` actually fire? Not designed yet — states exist in `NeighborAnimator.controller` but
   nothing triggers them.

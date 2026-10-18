@@ -5,7 +5,7 @@ using UnityEngine.Serialization;
 
 public class NeighborAI : MonoBehaviour
 {
-    public enum NeighborState { Idle, Approaching, Waiting, Yelling, Retreating, Returning, Charging, Leaving }
+    public enum NeighborState { Idle, Approaching, Waiting, Yelling, Retreating, Returning, Charging, Attacking, Leaving }
 
     [Header("References")]
     public Transform stopPoint;          // Where he stops right outside the door, like Dealer_StopPos
@@ -49,6 +49,17 @@ public class NeighborAI : MonoBehaviour
     public AudioClip strike1Voice;
     public AudioClip strike2FirstVoice;
     public AudioClip strike2SecondVoice;
+
+    [Header("Knockout (strike 3+, när han hunnit ikapp)")]
+    // He freezes the player, says this line, and the bat swing (PatrickHit, "SwingTrigger") is timed
+    // so it lands right as the line ends.
+    public AudioClip knockoutLine;
+    public float swingImpactTime = 0.95f;   // Seconds into the swing clip where the bat comes down
+    // He starts the line while still running at you once he's this close, so less of it is left for the
+    // frozen stare after the catch. Higher = shorter stare.
+    public float lineStartDistance = 6f;
+    public AudioClip hitThud;
+    [Range(0f, 1f)] public float hitThudVolume = 0.6f;
 
     [Header("Rotation vid stopPoint")]
     // Faces stopPoint's own rotation directly rather than a relative turn from whatever heading he
@@ -140,6 +151,9 @@ public class NeighborAI : MonoBehaviour
     // later - see CLAUDE.md).
     public void OnJointSmoked()
     {
+        // Already got you - let the knockout play out.
+        if (CurrentState == NeighborState.Attacking) return;
+
         jointsSmoked++;
 
         // Neighbour starts deactivated (see Awake) - has to be turned on before StartCoroutine
@@ -265,16 +279,96 @@ public class NeighborAI : MonoBehaviour
                 if (attackPoint != null)
                 {
                     float dist = Vector3.Distance(attackPoint.position, playerStats.transform.position);
-                    if (dist <= attackRadius)
-                    {
+                    // If the player already blacked out from the 4th joint they're lying on the floor,
+                    // out of reach of his hand - just get next to them instead.
+                    Vector3 flat = playerStats.transform.position - transform.position;
+                    flat.y = 0f;
+                    if (dist <= attackRadius || (playerStats.IsPassedOut && flat.magnitude <= 1.6f))
                         hasCaughtPlayer = true;
-                        playerStats.KnockedOut();
-                    }
+
+                    // Start the line on the way in; if you get away again, cut it so it restarts next time.
+                    bool linePlaying = IsKnockoutLinePlaying();
+                    if (!linePlaying && flat.magnitude <= lineStartDistance) PlayVoice(knockoutLine);
+                    else if (linePlaying && !hasCaughtPlayer && flat.magnitude > lineStartDistance + 4f) StopVoice();
                 }
             }
 
             yield return null;
         }
+
+        yield return AttackRoutine();
+    }
+
+    // Caught: stop dead (no more running in place), hold the player still, deliver the line, and
+    // swing so the bat lands on the last word. He then just stands there until the player has
+    // blacked out - OnPlayerBlackedOut() sends him home.
+    IEnumerator AttackRoutine()
+    {
+        CurrentState = NeighborState.Attacking;
+        agent.isStopped = true;
+        agent.ResetPath();
+        agent.updateRotation = false;
+
+        playerStats.HoldForHit(transform);
+
+        // Usually already mid-line from the run-in (see ChargeRoutine) - time the swing to its end.
+        if (!IsKnockoutLinePlaying()) PlayVoice(knockoutLine);
+        float lineLeft = knockoutLine != null && audioSource != null ? knockoutLine.length - audioSource.time : 0f;
+        float swingAt = Mathf.Max(0.3f, lineLeft - swingImpactTime);
+        yield return FacePlayerFor(swingAt);
+
+        if (animator != null) animator.SetTrigger("SwingTrigger");
+        yield return FacePlayerFor(swingImpactTime);
+
+        if (audioSource != null && hitThud != null) audioSource.PlayOneShot(hitThud, hitThudVolume);
+        playerStats.KnockedOut(); // no-op if they're already passing out on their own
+    }
+
+    bool IsKnockoutLinePlaying()
+    {
+        return audioSource != null && knockoutLine != null && audioSource.isPlaying && audioSource.clip == knockoutLine;
+    }
+
+    IEnumerator FacePlayerFor(float seconds)
+    {
+        float t = 0f;
+        while (t < seconds)
+        {
+            Vector3 dir = playerStats.transform.position - transform.position;
+            dir.y = 0f;
+            if (dir.sqrMagnitude > 0.01f)
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 8f);
+            t += Time.deltaTime;
+            yield return null;
+        }
+    }
+
+    // Called by PlayerStats while the screen is fully black, whatever caused the blackout. Göran is
+    // gone when the player wakes up and the strike counter starts over (a blackout is the reset for now).
+    public void OnPlayerBlackedOut()
+    {
+        jointsSmoked = 0;
+        if (!gameObject.activeInHierarchy) return;
+
+        if (activeRoutine != null) StopCoroutine(activeRoutine);
+        if (dialogueSubtitle != null) dialogueSubtitle.Stop();
+        waitingForInteract = false;
+        activeRoutine = StartCoroutine(GoHomeAfterBlackout());
+    }
+
+    IEnumerator GoHomeAfterBlackout()
+    {
+        // Let the Dorsia line finish over the black screen instead of cutting it mid-word.
+        while (audioSource != null && audioSource.isPlaying && audioSource.clip == knockoutLine)
+            yield return null;
+        StopVoice();
+
+        if (batInHand != null) batInHand.SetActive(false);
+        if (agent.enabled) agent.Warp(spawnPosition);
+        transform.rotation = spawnRotation;
+        CurrentState = NeighborState.Idle;
+        activeRoutine = null;
+        gameObject.SetActive(false);
     }
 
     // Walks him from spawn, up in the elevator, to stopPoint. Shared by the strike 1/2 approach and the
@@ -332,7 +426,8 @@ public class NeighborAI : MonoBehaviour
     void StopVoice()
     {
         if (audioSource == null) return;
-        if (audioSource.clip == strike1Voice || audioSource.clip == strike2FirstVoice || audioSource.clip == strike2SecondVoice)
+        if (audioSource.clip == strike1Voice || audioSource.clip == strike2FirstVoice || audioSource.clip == strike2SecondVoice
+            || audioSource.clip == knockoutLine)
             audioSource.Stop();
     }
 
