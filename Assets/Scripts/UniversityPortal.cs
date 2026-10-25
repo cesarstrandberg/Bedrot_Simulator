@@ -147,9 +147,19 @@ public class UniversityPortal : MonoBehaviour
     // ==========================================
     // 3. STARTA TENTAN (Koppla till Starta Tenta-knappen)
     // ==========================================
+    // One exam per week (CSN-style payout) - otherwise you could just retake it for unlimited money
+    // and rent would mean nothing. Static so it survives scene changes.
+    public static int nextExamDay = 1;
+
     public void StartExam()
     {
         PlayClick();
+        int today = DayClock.Instance != null ? DayClock.Instance.Day : 1;
+        if (today < nextExamDay)
+        {
+            Notify.Show($"No exam open right now. Next exam: Day {nextExamDay}");
+            return;
+        }
         instructionsPage.SetActive(false);
         examPage.SetActive(true);
         if (urlBarText != null) urlBarText.text = "http://stockholmshogskola.se/portal/active-exam";
@@ -211,6 +221,7 @@ public class UniversityPortal : MonoBehaviour
 
         // Använd vår nya, supersmarta algoritm för att få fram den sanna procenten!
         int accInt = CalculateAccuracy(typed, target);
+        nextExamDay = (DayClock.Instance != null ? DayClock.Instance.Day : 1) + 7;
 
         // Betygsskala A-U och pengar
         string grade = "U";

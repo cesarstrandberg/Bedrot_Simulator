@@ -50,6 +50,7 @@ public class DayClock : MonoBehaviour
 
         UpdateSun();
         UpdateText();
+        Rent.Tick(Day, Hour);
     }
 
     // Jumps the clock forward (sleeping). Rolls over into the next day only if it passes midnight.
@@ -92,7 +93,8 @@ public class DayClock : MonoBehaviour
         if (clockText == null) return;
         int h = Mathf.FloorToInt(Hour);
         int m = Mathf.FloorToInt((Hour - h) * 60f);
-        clockText.text = $"Day {Day}  {h:00}:{m:00}";
+        string pocket = GameState.pocketJoints > 0 ? $"\nJoints in pocket: {GameState.pocketJoints}" : "";
+        clockText.text = $"Day {Day}  {h:00}:{m:00}\n<size=70%>Rent {Rent.amountDue:0} kr - Day {Rent.dueDay}{pocket}</size>";
     }
 
     TextMeshProUGUI BuildClockText()
@@ -113,7 +115,7 @@ public class DayClock : MonoBehaviour
         var rt = text.rectTransform;
         rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(1f, 1f);
         rt.anchoredPosition = new Vector2(-24f, -18f);
-        rt.sizeDelta = new Vector2(400f, 50f);
+        rt.sizeDelta = new Vector2(400f, 120f);
         return text;
     }
 }

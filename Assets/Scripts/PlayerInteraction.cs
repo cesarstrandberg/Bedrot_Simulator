@@ -40,6 +40,11 @@ public class PlayerInteraction : MonoBehaviour
     [Header("Food Bag Settings")]
     public AudioClip bagOpenSound;
 
+    [Header("Fickan (R)")]
+    // R while holding a joint pockets it (GameState.pocketJoints, kept across scenes); R with empty
+    // hands takes one back out - spawned from this prefab (Joint_Wrapper).
+    public GameObject jointPrefab;
+
     void Start()
     {
         cam = GetComponent<Camera>();
@@ -80,11 +85,28 @@ public class PlayerInteraction : MonoBehaviour
             }
         }
 
+        // 1b. People/things you talk to with E (buyers, the bouncer) - works even with something in
+        // your hand, and shows the "[E] ..." prompt next to the crosshair.
+        IInteractable talkTarget = null;
+        if (Physics.Raycast(ray, out RaycastHit talkHit, interactRange + 0.5f))
+        {
+            talkTarget = talkHit.collider.GetComponentInParent<IInteractable>();
+            if (talkTarget != null)
+            {
+                talkTarget.OnLookedAt(transform);
+                InteractPrompt.Show("E", talkTarget.PromptLabel, talkTarget.PromptAvailable);
+            }
+        }
+
         // 2. Uppdatera crosshairet baserat på vad vi tittar på
         // 2. Uppdatera crosshairets FÄRG och ALPHA baserat på vad vi tittar på
         if (crosshairImage != null)
         {
-            if ((heldObject == null || holdingFilledJar) && isLookingAtInteractable)
+            if (talkTarget != null)
+            {
+                crosshairImage.color = interactColor;
+            }
+            else if ((heldObject == null || holdingFilledJar) && isLookingAtInteractable)
             {
                 // Om händerna är tomma (eller vi bär burken) och vi kollar på en pryl/dörr: Byt till Interact-färgen
                 crosshairImage.color = interactColor;
@@ -94,6 +116,15 @@ public class PlayerInteraction : MonoBehaviour
                 // Annars (om vi kollar bort eller bär något annat): Byt till Default-färgen
                 crosshairImage.color = defaultColor;
             }
+        }
+
+        // Talking takes priority over pick up/drop. A joint in your hand goes to your pocket first so
+        // you can sell straight from your hand.
+        if (talkTarget != null && (Input.GetKeyDown(KeyCode.E) || Input.GetMouseButtonDown(0)))
+        {
+            PocketHeldJoint();
+            talkTarget.Interact();
+            return;
         }
 
         // 3. Hantera plocka upp / släppa
@@ -120,6 +151,11 @@ public class PlayerInteraction : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.F) && heldObject != null)
         {
             ThrowObject();
+        }
+
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            TogglePocket();
         }
 
         // Scrool to rotate the held objects x-axis (only for general items, not consumables)
@@ -170,8 +206,7 @@ public class PlayerInteraction : MonoBehaviour
                 if (elevatorButton != null)
                 {
                     elevatorButton.Press();
-                }
-            }
+                }            }
         }
     }
 
@@ -232,6 +267,40 @@ public class PlayerInteraction : MonoBehaviour
         heldObject.transform.localPosition = Vector3.zero;
 
         // --- FUNDAMENTAL ÄNDRING: Raden heldObject.transform.localRotation = Quaternion.identity; ÄR RADERAD HÄRIFRÅN ---
+    }
+
+    // SceneDoor calls this before switching scene so a joint in your hand isn't lost.
+    public void PocketHeldJoint()
+    {
+        if (heldObject == null || isConsuming) return;
+        ConsumableItem consumable = heldObject.GetComponent<ConsumableItem>();
+        if (consumable != null && consumable.isJoint) TogglePocket();
+    }
+
+    void TogglePocket()
+    {
+        if (heldObject != null)
+        {
+            ConsumableItem consumable = heldObject.GetComponent<ConsumableItem>();
+            if (consumable == null || !consumable.isJoint) return;
+
+            Destroy(heldObject);
+            heldObject = null;
+            heldObjectRb = null;
+            heldObjectCollider = null;
+            isHoldingGeneralItem = false;
+            if (armRoot != null) armRoot.gameObject.SetActive(false);
+            if (armRoot2 != null) armRoot2.gameObject.SetActive(false);
+
+            GameState.pocketJoints++;
+            Notify.Show($"Joint pocketed ({GameState.pocketJoints} in pocket)", 2f);
+        }
+        else if (GameState.pocketJoints > 0 && jointPrefab != null)
+        {
+            GameState.pocketJoints--;
+            GameObject joint = Instantiate(jointPrefab, cam.transform.position + cam.transform.forward * 0.5f, Quaternion.identity);
+            PickUpObject(joint);
+        }
     }
 
     void TryPlaceFilledJar(GameObject target)

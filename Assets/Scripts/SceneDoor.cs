@@ -34,6 +34,8 @@ public class SceneDoor : MonoBehaviour
 
             yield return Fade(black, 0f, 1f, fade);
 
+            PlayerInteraction hands = FindFirstObjectByType<PlayerInteraction>();
+            if (hands != null) hands.PocketHeldJoint();
             GameState.Save();
             GameState.nextSpawnPoint = spawnId;
             yield return SceneManager.LoadSceneAsync(scene);

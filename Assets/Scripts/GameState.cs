@@ -9,7 +9,11 @@ public static class GameState
     public static int day;
     public static float hour;
 
-    public static string nextSpawnPoint;   // SpawnPoint.id to place the player at in the next scene
+    public static string nextSpawnPoint;
+
+    // Joints you're carrying (pocketed with R in PlayerInteraction). Kept across scenes, unlike
+    // whatever is in your hand.
+    public static int pocketJoints;   // SpawnPoint.id to place the player at in the next scene
 
     public static void Save()
     {

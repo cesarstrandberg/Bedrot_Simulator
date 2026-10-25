@@ -12,7 +12,7 @@ public class InstructionsPanel : MonoBehaviour
         "and try not to get in too deep.\n\n" +
         "<b>CONTROLS</b>\n" +
         "<b>WASD</b> move  ·  <b>Shift</b> sprint  ·  <b>Space</b> jump  ·  <b>C</b> crouch\n" +
-        "<b>E</b> pick up / drop  ·  <b>F</b> throw  ·  <b>Left click</b> use / eat / drink / interact\n" +
+        "<b>E</b> pick up / drop / talk  ·  <b>F</b> throw  ·  <b>R</b> pocket a joint  ·  <b>Left click</b> use / eat / drink / interact\n" +
         "<b>Scroll</b> rotate held item  ·  <b>Ctrl</b> zoom  ·  <b>Q</b> lean  ·  <b>Esc</b> exit laptop/station\n\n" +
         "<b>THINGS TO TRY</b>\n" +
         "1.  <b>Use the laptop.</b> Go to stockholmshogskola.se, log in and take an exam: memorize the Java\n" +
@@ -21,7 +21,9 @@ public class InstructionsPanel : MonoBehaviour
         "3.  <b>Order weed</b> on darkmarket.se. The dealer knocks on your door; click him to pay.\n" +
         "4.  <b>Roll a joint</b> at the table: open the jar, grind a bud, then roll it. Then smoke it.\n" +
         "5.  <b>Watch your stats.</b> Hunger, thirst and craving keep going down. Being high gives you the munchies.\n" +
-        "6.  <b>Mind the neighbour.</b> He doesn't like the smell, and he gets angrier with every joint.\n\n" +
+        "6.  <b>Mind the neighbour.</b> He doesn't like the smell, and he gets angrier with every joint.\n" +
+        "7.  <b>Pay the rent.</b> 5000 kr every week. CSN won't cover it - pocket joints (R), go outside and sell them.\n" +
+        "8.  <b>Betsey Trotwood.</b> The pub across the park. Getting past the bouncer is another matter.\n\n" +
         "<size=26><b>Press [Enter] to start</b></size>";
 
     GameObject canvasObject;
@@ -54,7 +56,7 @@ public class InstructionsPanel : MonoBehaviour
         box.color = new Color(0.08f, 0.08f, 0.09f, 0.95f);
         RectTransform boxRect = box.rectTransform;
         boxRect.anchorMin = boxRect.anchorMax = new Vector2(0.5f, 0.5f);
-        boxRect.sizeDelta = new Vector2(1300, 820);
+        boxRect.sizeDelta = new Vector2(1400, 900);
 
         Text text = CreateChild("Text", box.transform).AddComponent<Text>();
         text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");

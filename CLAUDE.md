@@ -97,9 +97,59 @@ This is the only animation pipeline available — any NPC/character plan needs t
   at `Dealer_SpawnPos` (ground floor) → city `City_FrontDoor` (sidewalk in front of the purple
   house's steps, across from the bus stop). City: `SceneDoors/Door_ToApartment` on top of those steps
   → apartment `Apartment_Entrance` (in front of the downstairs elevator).
-- `GameState` (static) carries money/needs/high/drunk/day/hour across the switch; `PlayerStats` and
-  `DayClock` read it on load. Not carried: Göran's strikes, held items, anything else in the scene.
-  The city player has `PlayerStats` + `DayClock` but no crosshair UI/high volume/fade overlay yet.
+- `GameState` (static) carries money/needs/high/drunk/day/hour/`pocketJoints` across the switch;
+  `PlayerStats` and `DayClock` read it on load. A joint in hand is auto-pocketed by `SceneDoor`.
+  Not carried: Göran's strikes, other held items.
+- The city's `Player` is an instance of `Assets/Prefab/Player.prefab` (saved from the apartment's
+  player, same arms/hold points), with `PlayerHUD.prefab` (crosshair, fade, money/needs bars) and
+  `HighVolume.prefab`. The prefab's scene links (crosshair, fade, high volume) are re-wired in the
+  city; `neighbor` is empty there. The apartment's own player is untouched (still its old prefab).
+
+**The money loop (the "cause")**
+- `Rent` (static, ticked by `DayClock`): 5000 kr due every 7 days at 12:00, starting Day 7, taken
+  automatically. Reminder the morning before. Can't pay → +500 kr late fee, 2 days' grace,
+  escalating landlord messages; the 3rd miss threatens eviction (no actual eviction mechanic yet).
+  Next rent shows under the clock.
+- Exams (`UniversityPortal.StartExam`) are once per 7 days (`nextExamDay`, static), so CSN tops out
+  at 4000 kr/week — less than rent on purpose.
+- Selling: R while holding a joint pockets it (`GameState.pocketJoints`, shown under the clock); R
+  with empty hands takes one out (`PlayerInteraction.jointPrefab` = `Joint_Wrapper`). `WeedBuyer` in
+  the city park (by the bench, placeholder = the DrugDealer model + DealerAnimator idle; swap for a
+  real Sketchfab/Mixamo character) buys 150 kr/joint, max 3 per day.
+- `Notify.Show(text)`: queued on-screen messages, survives scene loads. Use it for any game feedback.
+- **E-interactions**: anything implementing `IInteractable` (`WeedBuyer`, `Bouncer`) gets a red
+  crosshair + an `InteractPrompt` ("[E] Sell joint 150 kr", Schedule I-style rounded key cap, greyed
+  when unavailable) and is used with E or left-click — takes priority over pick-up/drop, works with
+  something in hand (a held joint is pocketed first). `InteractPrompt.Float("+150 kr", color)` for
+  floating feedback. No `Interactable` tag needed for these.
+
+**City population**
+- 8 generated characters (`Assets/Prefab/Pedestrians/Pedestrian_*.prefab`): Olle/Kemal/Viktor/Jonas
+  from the DrugDealer model (Generic, `DealerAnimator`), Bengt/Rami/Leif/Samir from Göran's
+  DeliveryDriver model (Humanoid, `NeighborAnimator`). New looks = recoloured copies of each model's
+  texture atlas (clothes per atlas block, skin tone tinted), in `Assets/3D_Models/Characters/Variants/`.
+  Same body shapes as the originals (no Blender) — the walkers are the only real variety.
+- `Pedestrian`: NavMeshAgent wanderer (random reachable sidewalk point within 30m, pause, repeat),
+  drives animator `Speed` (capped at walk speed); `Hold()` stops it (buyers stop while you look at
+  them). ~2 in 3 walkers vanish 01:00–06:00 ("gone home").
+- City NavMesh: `CityNavMesh` (NavMeshSurface, physics colliders). Every `street*` collider has a
+  `NavMeshModifier` → area 3 ("road"), cost set to 8 at runtime so walkers keep to sidewalks.
+  The `Pub` building had no collider (walk-through) — now has a MeshCollider. Rebake after moving
+  city geometry.
+- Scene: 14 walkers under `Pedestrians` (3 are buyers, `_Buyer` suffix, 2 joints/day each) plus
+  the static park buyer `WeedBuyer_Park` (re-skinned as Jonas).
+
+**Betsey Trotwood (the bar)**
+- The `Pub` building (only named building in the city, corner south of the park). `Bouncer_Dragan`
+  stands at its door (Olle variant, scaled 1.08, `Bouncer` + NavMeshObstacle). Open 18:00–03:00.
+- `Bouncer`: E starts a conversation in `DialogueChoiceUI` (answer with 1–4, player frozen while
+  open). Suspicion starts at drunk×3 + high×2; the opener changes if you're drunk (>0.5, "how much
+  have you had?") or high (>0.5, "why are you smiling?" / moustache tangent); then the ID check and
+  "what're you drinking". Your answers get slurred when drunk. Suspicion < 3 → in: black-screen night
+  out (random story line, −250 kr, +0.35 drunk, +2.5–4h). 3–5.5 → turned away for the night.
+  > 5.5 → turned away + shoved. No bar interior exists yet.
+- Economy now: jar 200 kr → 7 joints → ~1050 kr if all sold; rent 5000/week; start money 1500.
+  Untested balance — expect to tune.
 
 **Drug economy loop**
 - `DealerAI` + `DealerClickable` + `DrugSite`: player orders from a web portal, a dealer NPC
