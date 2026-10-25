@@ -43,6 +43,18 @@ public class PlayerStats : MonoBehaviour
         // PlayerStats lives on the camera, PlayerMovement on its parent Player - plain GetComponent
         // came back null, so the pass-out never actually stopped the player walking.
         movementScript = GetComponentInParent<PlayerMovement>();
+
+        // Coming from another scene (SceneDoor) - pick up where the other scene's player left off.
+        if (GameState.hasData)
+        {
+            money = GameState.money;
+            hunger = GameState.hunger;
+            thirst = GameState.thirst;
+            craving = GameState.craving;
+            highLevel = GameState.highLevel;
+            drunkLevel = GameState.drunkLevel;
+            if (highVolume != null) highVolume.weight = Mathf.Clamp01(highLevel);
+        }
         if (fadeImage != null)
         {
             Color c = fadeImage.color;

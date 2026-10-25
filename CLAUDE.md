@@ -84,6 +84,23 @@ This is the only animation pipeline available — any NPC/character plan needs t
   without maxing it out) — changed deliberately to leave room for the neighbor's 3-strike escalation
   to fully play out before the player can black out, see Neighbor system below.
 
+**Day clock & scenes**
+- `DayClock` (one per scene): `Day`/`Hour`, runs at `realMinutesPerDay` (24), rotates the scene's
+  Directional Light by the hour (procedural skybox does sunrise/sunset/night) and dims ambient at
+  night; builds its own "Day 1  08:00" corner text. `Bed` calls `SkipHours()` with a random 5–7h
+  (new day only if that passes midnight).
+  Passing out does not advance time yet.
+- Two scenes: `ApartmentScene` (inside; note it also contains its own copy of the city,
+  `City_Master`, rotated 90°, only seen through the windows) and `City_Environment` (outside, has its
+  own `Player`). Both are in Build Settings. `SceneDoor` (trigger box) fades out, loads the other
+  scene and places the player at the `SpawnPoint` with matching id. Apartment: `SceneDoors/Door_ToCity`
+  at `Dealer_SpawnPos` (ground floor) → city `City_FrontDoor` (sidewalk in front of the purple
+  house's steps, across from the bus stop). City: `SceneDoors/Door_ToApartment` on top of those steps
+  → apartment `Apartment_Entrance` (in front of the downstairs elevator).
+- `GameState` (static) carries money/needs/high/drunk/day/hour across the switch; `PlayerStats` and
+  `DayClock` read it on load. Not carried: Göran's strikes, held items, anything else in the scene.
+  The city player has `PlayerStats` + `DayClock` but no crosshair UI/high volume/fade overlay yet.
+
 **Drug economy loop**
 - `DealerAI` + `DealerClickable` + `DrugSite`: player orders from a web portal, a dealer NPC
   walks to the apartment door (NavMeshAgent), knocks, hands off a jar, player pays. Jar model is

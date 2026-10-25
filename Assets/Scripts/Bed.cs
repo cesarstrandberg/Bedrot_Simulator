@@ -112,7 +112,10 @@ public class Bed : MonoBehaviour
 
 
         // 3. SOV I MÖRKER
-        Debug.Log("Spelaren sover... 6 timmar passerar.");
+        // Never quite the same night: 5-7 hours.
+        float hoursSlept = Random.Range(5f, 7f);
+        Debug.Log("Spelaren sover... " + hoursSlept.ToString("0.0") + " timmar passerar.");
+        if (DayClock.Instance != null) DayClock.Instance.SkipHours(hoursSlept);
 
         // Håll kameran fastlåst även medan vi väntar i mörkret
         float sleepTimer = 0f;
