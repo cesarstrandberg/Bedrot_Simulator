@@ -105,6 +105,52 @@ This is the only animation pipeline available — any NPC/character plan needs t
   at `Dealer_SpawnPos` (ground floor) → city `City_FrontDoor` (sidewalk in front of the purple
   house's steps, across from the bus stop). City: `SceneDoors/Door_ToApartment` on top of those steps
   → apartment `Apartment_Entrance` (in front of the downstairs elevator).
+- Third scene `LectureHall` (in Build Settings): `Assets/Prefab/LectureHall.prefab` (Sketchfab model
+  `_1163.fbx`, MeshColliders on all 60 parts) at the origin, own sun + 4 point-light `Lamps`, Player/
+  PlayerHUD/HighVolume prefabs wired like the city, `DayClock`. Reached via the city's
+  `SceneDoors/Door_ToLectureHall` (police station front door, east side, x≈63.5 z≈-16.3) →
+  `Lecture_Entrance` (inside the hall's right-front door). Its `SceneDoors/Door_ToCity` →
+  `City_PoliceStation` (sidewalk in front of the station). Empty room so far — no NPCs/lecture yet.
+  The four `Cube`s next to the police station (y≈3.5, behind the facade) are Cesar's — unknown purpose.
+- **Lecture animations**: `Sitting Idle`/`Sitting`/`Sitting Talking`/`Talking`/`Talking (1)`/`Talking (2)`
+  `.fbx` (Assets/Animations, downloaded with Mixamo's suited "Ch33" character, `mixamorig7:` bones)
+  converted to Humanoid (own avatar each), loop on, root locked in place, clips renamed to the file name.
+  `StudentAnimator.controller` (the 3 sitting states) works on the Humanoid DeliveryDriver-body
+  characters (Göran, Bengt/Rami/Leif/Samir) — NOT the Generic DrugDealer-body ones. `TeacherAnimator.
+  controller` (3 talking states). Teacher = the Ch33 model from `Talking.fbx`, textures extracted to
+  `Assets/3D_Models/Characters/Teacher/` with real URP materials remapped on that FBX (the embedded
+  ones rendered white). Edit-mode preview gotcha: `Animator.Update`/`AnimationMode` didn't pose
+  Humanoid clips on other rigs; `clip.SampleAnimation(go, t)` did.
+- **Lecture hall population**: the hall model is ~1.35x real size, so the `LectureHall` instance is
+  scaled **0.77** in the scene (desks 0.81m, seats 0.45m); spawn/door/lamps moved to match. 7 tiered
+  rows × 24 seats (L/M/R sections of 8, side sections curve inward). 137 students under `Students`
+  (`Assets/Prefab/Students/Student_{Bengt,Rami,Leif,Samir,Goran}.prefab`: holder with `SeatedStudent`
+  + DeliveryDriver model child with `StudentAnimator`), ~15% of seats randomly empty. `Seats/PlayerSeat`
+  (back row, outermost seat on the entrance/right side) and `Seats/ClassmateSeat` (next to it) are
+  empty markers for the lecture/classmate steps. `Teacher` (Ch33 from `Talking.fbx`,
+  `TeacherAnimator`) stands on the front stage (y 0.11).
+- `SeatedStudent`: weighted random sitting poses (8–20s holds) and one-shot gestures; `Sitting And
+  Pointing` is the deliberately rare one (weight 2 of ~90). Tune weights in the Inspector/prefabs.
+- **The lecture** (`LectureManager` object in `LectureHall`): starts on scene load, so you always walk
+  in late; after his first line the teacher (Lennart) calls you out (`LateRemark`), then 6 slides of
+  subtitles (~6 min: strings, loops, classes, null/exceptions + a bike-rack-dealer tangent,
+  recursion, exam) while `CodeScreen` (world-space panel over the projector screen, z≈4.32) types
+  each slide's Java with syntax colours. Teacher crossfades between his 3 talking clips every 6–12s.
+  Lines live in `LectureManager.Slides` (duration auto from length). Restarts every time you enter
+  the scene — no schedule yet (planned: weekdays 09:00). `LectureSeat` on `Seats/PlayerSeat`: E to
+  sit (movement off, Rigidbody kinematic, camera at 1.15m, mouse-look + hands still work), E to
+  stand (back where you were). `LectureSeat.PlayerSeated` static flag for later story checks.
+- **The classmate** (`Seats/ClassmateSeat/Classmate_Elias`, a Student_Rami + `Classmate` + trigger
+  capsule): 20s after you sit (or E on him) he turns his head to you and whispers a `DialogueChoiceUI`
+  conversation (lecture subtitles hide meanwhile; dialogue no longer un-freezes a seated player),
+  slides a real `Joint_Wrapper` onto the desk in front of `PlayerSeat` (pick it up like any item),
+  and gives you dealer **Jonte**'s number. Once per game: `GameState.metClassmate` / `hasDealerNumber`.
+  The player's collider is off while seated so desk items don't get shoved.
+- **Smoking in the lecture**: `PlayerStats.JointSmoked` (static event, fired in `SmokeJoint`). The
+  `LectureManager` makes every `SeatedStudent.All` turn their head to you (`StudentLookAt`, IK look-at,
+  IK Pass on in Student/TeacherAnimator) in a ripple by distance for ~9–14s, Lennart stops, turns to
+  face you and calls you out (`CaughtLines`), lecture ends. Again after it's over → `CaughtAfterLines`.
+- `ATM` (`Assets/Prefab/ATM.prefab`, BoxCollider) stands in the city park, for the dealer's ATM walk.
 - `GameState` (static) carries money/needs/high/drunk/day/hour/`pocketJoints` across the switch;
   `PlayerStats` and `DayClock` read it on load. A joint in hand is auto-pocketed by `SceneDoor`.
   Not carried: Göran's strikes, other held items.

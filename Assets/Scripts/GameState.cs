@@ -20,6 +20,10 @@ public static class GameState
     public static float moneyEarned;
     public static bool rentPaid;
 
+    // Story
+    public static bool metClassmate;      // Elias gave you the joint (lecture hall)
+    public static bool hasDealerNumber;   // ...and Jonte's number
+
     // Fresh game (EndingScreen restart). hasData = false makes PlayerStats/DayClock use their own
     // starting values again.
     public static void ResetAll()
@@ -30,6 +34,7 @@ public static class GameState
         examsTaken = jointsSold = 0;
         moneyEarned = 0f;
         rentPaid = false;
+        metClassmate = hasDealerNumber = false;
     }
 
     public static void Save()

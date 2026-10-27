@@ -118,6 +118,8 @@ public class PlayerStats : MonoBehaviour
         }
     }
 
+    public static event System.Action JointSmoked;   // the lecture hall reacts to this
+
     public void SmokeJoint()
     {
         // 4 joints needed to black out (matches the >= 1.05f check in Update): first 3 build up
@@ -127,6 +129,7 @@ public class PlayerStats : MonoBehaviour
         Debug.Log("Joint rökt! Craving nollställd.");
 
         if (neighbor != null) neighbor.OnJointSmoked();
+        JointSmoked?.Invoke();
     }
 
     // Called by NeighborAI once his hand gets within attackRadius of the player during his charge -

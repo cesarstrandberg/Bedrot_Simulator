@@ -73,7 +73,7 @@ public class DialogueChoiceUI : MonoBehaviour
         var move = FindFirstObjectByType<PlayerMovement>();
         if (move != null)
         {
-            move.enabled = !locked;
+            move.enabled = !locked && !LectureSeat.PlayerSeated;   // stay put if sitting in the lecture
             var rb = move.GetComponent<Rigidbody>();
             if (locked && rb != null) rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
         }
