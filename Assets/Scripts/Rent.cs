@@ -15,6 +15,14 @@ public static class Rent
     public static int missedPayments;
     static int remindedForDay;
 
+    public static void ResetAll()
+    {
+        amountDue = WeeklyRent;
+        dueDay = 7;
+        missedPayments = 0;
+        remindedForDay = 0;
+    }
+
     public static void Tick(int day, float hour)
     {
         // Heads-up the morning before
@@ -35,6 +43,7 @@ public static class Rent
         if (stats.money >= amountDue)
         {
             stats.money -= amountDue;
+            GameState.rentPaid = true;
             Notify.Show($"Rent paid: -{amountDue:0} kr");
             missedPayments = 0;
             amountDue = WeeklyRent;

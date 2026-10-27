@@ -67,6 +67,8 @@ public class WeedBuyer : MonoBehaviour, IInteractable
         GameState.pocketJoints--;
         soldToday++;
         stats.money += pricePerJoint;
+        GameState.jointsSold++;
+        GameState.moneyEarned += pricePerJoint;
         if (audioSource != null && saleSound != null) audioSource.PlayOneShot(saleSound);
         InteractPrompt.Float($"+{pricePerJoint:0} kr", new Color(0.55f, 0.95f, 0.55f));
         string[] lines = { "\"Nice. Pleasure doing business.\"", "\"Smells right. Cheers.\"", "\"You didn't see me.\"", "\"Same time tomorrow?\"" };

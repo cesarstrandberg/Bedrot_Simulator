@@ -235,6 +235,9 @@ public class UniversityPortal : MonoBehaviour
         else if (accInt >= 50) { grade = "E"; csnMoney = 2000; colorHex = "#FF9900"; }
         else { grade = "U"; csnMoney = 0; colorHex = "#FF0000"; }
 
+        GameState.examsTaken++;
+        GameState.moneyEarned += csnMoney;
+
         // Ge pengar till spelaren om godkänd!
         if (csnMoney > 0 && playerStats != null)
         {

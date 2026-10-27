@@ -9,11 +9,28 @@ public static class GameState
     public static int day;
     public static float hour;
 
-    public static string nextSpawnPoint;
+    public static string nextSpawnPoint;   // SpawnPoint.id to place the player at in the next scene
 
     // Joints you're carrying (pocketed with R in PlayerInteraction). Kept across scenes, unlike
     // whatever is in your hand.
-    public static int pocketJoints;   // SpawnPoint.id to place the player at in the next scene
+    public static int pocketJoints;
+
+    // Week stats for the end card (EndingScreen)
+    public static int examsTaken, jointsSold;
+    public static float moneyEarned;
+    public static bool rentPaid;
+
+    // Fresh game (EndingScreen restart). hasData = false makes PlayerStats/DayClock use their own
+    // starting values again.
+    public static void ResetAll()
+    {
+        hasData = false;
+        nextSpawnPoint = null;
+        pocketJoints = 0;
+        examsTaken = jointsSold = 0;
+        moneyEarned = 0f;
+        rentPaid = false;
+    }
 
     public static void Save()
     {

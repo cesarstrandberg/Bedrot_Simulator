@@ -15,6 +15,14 @@ opposite angle: an ordinary person, sympathetic at the start, who makes one bad 
 until he's in over his head. Tone reference: Tarantino / Reservoir Dogs — raw, dialogue-driven,
 morally messy, not sanitized, but not shock-for-shock's-sake either. Grounded over cartoonish.
 
+**Direction change (2026-10-27): the game is now ONE WEEK long and ends the same way every time —
+the dealer shoots you.** Supersedes the "never-ending / no win state" idea above. Reservoir Dogs
+nihilism: nothing you do saves you; your choices only change what happens on the way (and what the
+dealer says before the shot). Hard cut to black on the shot, no gore. End card shows the week's
+stats, then "Nothing matters." Rough week: Day 1 lecture (classmate's joint + dealer's number, start
+with no weed), Day 2 dealer calls + weed on credit, Days 3–6 sandbox, Day 6 dealer collects / ATM
+walk, Day 7 the shot. Exact trigger for the shot (Day 7 noon? after the ATM?) not decided yet.
+
 ## Structure
 
 Scripted intro, then it opens up into the sandbox:
@@ -150,6 +158,15 @@ This is the only animation pipeline available — any NPC/character plan needs t
   > 5.5 → turned away + shoved. No bar interior exists yet.
 - Economy now: jar 200 kr → 7 joints → ~1050 kr if all sold; rent 5000/week; start money 1500.
   Untested balance — expect to tune.
+
+**Ending (`EndingScreen`)**
+- `EndingScreen.Play(sound)` from anywhere: hard cut to black, `Time.timeScale = 0` + `AudioListener.
+  pause` (the passed clip, e.g. a gunshot, still plays), 3s silence, then the week stats one line at a
+  time (`GameState.examsTaken/jointsSold/moneyEarned/rentPaid`, counted in `UniversityPortal`,
+  `WeedBuyer`, `Rent`), then "Nothing matters." R = start over (`EndingScreen.ResetWeek()` resets all
+  static state, reloads `ApartmentScene`), Esc = quit. Builds its own UI.
+- **F9 = test trigger** (`EndingScreenDebugKey`, same file) — remove once the dealer's shot calls it.
+- Any new static state that should reset on a new game must be added to `ResetWeek()`.
 
 **Drug economy loop**
 - `DealerAI` + `DealerClickable` + `DrugSite`: player orders from a web portal, a dealer NPC
