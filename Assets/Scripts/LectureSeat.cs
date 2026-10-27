@@ -1,6 +1,6 @@
 using UnityEngine;
 
-// An empty seat you can sit in with E (and stand up from with E). While seated you can't walk, but you
+// An empty seat you can sit in with E (and stand up from with Space - E is busy picking things up). While seated you can't walk, but you
 // can still look around and use whatever is in your hands. Put it on a marker at the seat's floor
 // level, facing the front; it adds its own trigger box so the crosshair can find it.
 public class LectureSeat : MonoBehaviour, IInteractable
@@ -10,7 +10,7 @@ public class LectureSeat : MonoBehaviour, IInteractable
     public static bool PlayerSeated { get; private set; }
 
     bool seated;
-    int seatedFrame, dialogueFrame = -10;
+    int seatedFrame;
     Vector3 standPosition;
     Quaternion standRotation;
     PlayerMovement movement;
@@ -38,9 +38,8 @@ public class LectureSeat : MonoBehaviour, IInteractable
 
     void Update()
     {
-        if (DialogueChoiceUI.IsOpen) { dialogueFrame = Time.frameCount; return; }
-        if (Time.frameCount - dialogueFrame <= 2) return;   // the E that closed a dialogue line
-        if (seated && Time.frameCount != seatedFrame && Input.GetKeyDown(KeyCode.E)) Stand();
+        if (DialogueChoiceUI.IsOpen) return;
+        if (seated && Time.frameCount != seatedFrame && Input.GetKeyDown(KeyCode.Space)) Stand();
     }
 
     void Sit()
@@ -68,7 +67,7 @@ public class LectureSeat : MonoBehaviour, IInteractable
         PlayerSeated = true;
         seatedFrame = Time.frameCount;
         box.enabled = false;   // so the crosshair doesn't keep offering "Sit"
-        Notify.Show("<size=80%>[E] Stand up</size>", 2.5f);
+        Notify.Show("<size=80%>[Space] Stand up</size>", 2.5f);
     }
 
     void Stand()

@@ -120,7 +120,8 @@ public class PlayerInteraction : MonoBehaviour
 
         // Talking takes priority over pick up/drop. A joint in your hand goes to your pocket first so
         // you can sell straight from your hand.
-        if (talkTarget != null && (Input.GetKeyDown(KeyCode.E) || Input.GetMouseButtonDown(0)))
+        // Left-click only talks with empty hands - otherwise it's "use what I'm holding" (smoke/drink)
+        if (talkTarget != null && (Input.GetKeyDown(KeyCode.E) || (Input.GetMouseButtonDown(0) && heldObject == null)))
         {
             PocketHeldJoint();
             talkTarget.Interact();

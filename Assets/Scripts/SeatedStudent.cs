@@ -21,6 +21,7 @@ public class SeatedStudent : MonoBehaviour
         new Pose("Sitting Idle",         30f, false),
         new Pose("Sitting",              25f, false),
         new Pose("Sitting Talking",      12f, false),
+        new Pose("Talking (1)",          10f, false),   // sitting + talking with hands
         new Pose("Sitting Rubbing Arm",  10f, true),
         new Pose("Sitting Disbelief",     6f, true),
         new Pose("Sitting Gun Motion",    5f, true),

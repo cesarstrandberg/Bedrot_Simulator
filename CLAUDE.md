@@ -140,12 +140,20 @@ This is the only animation pipeline available — any NPC/character plan needs t
   the scene — no schedule yet (planned: weekdays 09:00). `LectureSeat` on `Seats/PlayerSeat`: E to
   sit (movement off, Rigidbody kinematic, camera at 1.15m, mouse-look + hands still work), E to
   stand (back where you were). `LectureSeat.PlayerSeated` static flag for later story checks.
-- **The classmate** (`Seats/ClassmateSeat/Classmate_Elias`, a Student_Rami + `Classmate` + trigger
-  capsule): 20s after you sit (or E on him) he turns his head to you and whispers a `DialogueChoiceUI`
-  conversation (lecture subtitles hide meanwhile; dialogue no longer un-freezes a seated player),
-  slides a real `Joint_Wrapper` onto the desk in front of `PlayerSeat` (pick it up like any item),
-  and gives you dealer **Jonte**'s number. Once per game: `GameState.metClassmate` / `hasDealerNumber`.
-  The player's collider is off while seated so desk items don't get shoved.
+- **The classmate** (`Seats/ClassmateSeat/Classmate_Elias`, a Student_Rami + `Classmate`): 15s after
+  you sit he turns his head to you and just talks — timed whisper subtitles (`linesBefore`/`linesAfter`),
+  no key presses, no freeze (Cesar: having to press keys to advance him felt wrong; the earlier
+  DialogueChoiceUI version also froze mouse-look). Mid-way he drops a real `Joint_Wrapper` on the desk
+  in front of `PlayerSeat` (lies flat at rotation 0, long axis = z), then gives you dealer **Jonte**'s
+  number. Once per game: `GameState.metClassmate` / `hasDealerNumber`. Player collider is off while seated.
+- **Seat controls**: E sits, **Space** stands (E stood you up in the same frame you picked something up).
+  Left-click only talks to an `IInteractable` with empty hands — with something held it always uses it
+  (was pocketing the joint instead of smoking it when the crosshair was on a person/seat).
+- Smoking while Elias is still talking cuts him off ("...Bro. Not in HERE.") — he still sends Jonte's number.
+- Students sit 8cm further forward than the computed seat point (backs were poking through the chairs).
+- **`ATM.fbx` shipped with a camera (`CINEMA_4D_Editor`)** that hijacked the screen when the city
+  loaded — import Cameras/Lights now off on it. Check that on every Sketchfab model.
+- `Talking (1).fbx` is actually a *sitting* talking clip — moved from TeacherAnimator to StudentAnimator.
 - **Smoking in the lecture**: `PlayerStats.JointSmoked` (static event, fired in `SmokeJoint`). The
   `LectureManager` makes every `SeatedStudent.All` turn their head to you (`StudentLookAt`, IK look-at,
   IK Pass on in Student/TeacherAnimator) in a ripple by distance for ~9–14s, Lennart stops, turns to

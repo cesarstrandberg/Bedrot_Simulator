@@ -14,7 +14,7 @@ public class LectureManager : MonoBehaviour
     public float gapBetweenLines = 0.6f;
     public float pauseBetweenSlides = 3f;
 
-    static readonly string[] TalkStates = { "Talking", "Talking (1)", "Talking (2)" };
+    static readonly string[] TalkStates = { "Talking", "Talking (2)" };   // "Talking (1)" is actually a sitting clip
 
     TextMeshProUGUI subtitle;
     Canvas subtitleCanvas;

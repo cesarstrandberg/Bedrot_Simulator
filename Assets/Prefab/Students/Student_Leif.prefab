@@ -55,6 +55,9 @@ MonoBehaviour:
   - state: Sitting Talking
     weight: 12
     gesture: 0
+  - state: Talking (1)
+    weight: 10
+    gesture: 0
   - state: Sitting Rubbing Arm
     weight: 10
     gesture: 1
