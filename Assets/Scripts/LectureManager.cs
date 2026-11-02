@@ -101,7 +101,7 @@ public class LectureManager : MonoBehaviour
             "Speaking of people who don't pick up. Administration asked me to mention something.",
             "Some of you have been, quote, 'conducting business' behind the C building.",
             "I don't care. I want to be very clear about that. I do not care.",
-            "But the guy in the grey hoodie by the bike racks? He's not a student. He has never been a student.",
+            "But the guy in the grey jacket by the bike racks? He's not a student. He has never been a student.",
             "I've been here eleven years. He's been at those bike racks for nine of them.",
             "Make of that what you will.",
             "Anyway."),

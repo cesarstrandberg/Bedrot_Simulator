@@ -2,6 +2,11 @@
 
 Working title, taken from the repo name. Not finalized.
 
+> **📌 START OF NEXT SESSION (left 2026-11-02):** Jonte + the shot are built (see "Jonte" below) but
+> **never play-tested** — Claude can't run Play mode. Ask Cesar how his test went (editor keys: F10 =
+> Jonte calls + delivers, F9 = final visit, both in the apartment). Then: the shot trigger time
+> (now Day 7 12:00, `JonteStory.FinalHour`) and hiding in the city (see Open questions).
+
 ## The pitch
 
 A first-person, never-ending life sim about an ordinary student in Stockholm who starts dealing
@@ -219,8 +224,62 @@ This is the only animation pipeline available — any NPC/character plan needs t
   time (`GameState.examsTaken/jointsSold/moneyEarned/rentPaid`, counted in `UniversityPortal`,
   `WeedBuyer`, `Rent`), then "Nothing matters." R = start over (`EndingScreen.ResetWeek()` resets all
   static state, reloads `ApartmentScene`), Esc = quit. Builds its own UI.
-- **F9 = test trigger** (`EndingScreenDebugKey`, same file) — remove once the dealer's shot calls it.
+- Stats include "Owed Jonte". The old F9 test key is gone — F9 now sends Jonte (editor only, `JonteStory`).
 - Any new static state that should reset on a new game must be added to `ResetWeek()`.
+
+**Phone (`Phone.cs`)**
+- Builds itself (RuntimeInitializeOnLoad, DontDestroyOnLoad), no scene wiring. 3D phone =
+  `Assets/Resources/Phone.prefab` (`fbxIphone.fbx` scaled 0.6, own dark materials, `ScreenAnchor` on the
+  front +z face) re-parented to `Camera.main` on every scene load; world-space canvas on the screen.
+- **Tab** raise/lower (answers a ringing call); while up: scroll = select, left-click = open, right-click =
+  back; `PlayerInteraction` is disabled while it's up. Pages: Home (clock, weekday, unread, rent),
+  Messages → Thread, Contacts (click = call), Call.
+- Popups top-right, Schedule I style: rounded dark card, coloured circle icon with the contact's initial,
+  name + kind (MESSAGES / INCOMING CALL / MISSED CALL), slide in/out, stack. Procedural buzz/ring/beep.
+- Story API: `Phone.Text(from, text)`, `Phone.AddContact(name)`, `Phone.IncomingCall(from, lines,
+  answered => ...)` (lines "Jonte: ..." / "You: ..." as subtitles), `Phone.OnCallContact = name => lines|null`.
+  `Phone.ResetAll()` in `EndingScreen.ResetWeek()`. Editor-only test keys: **F7** text, **F8** incoming call.
+- Wired: Elias texts you Jonte's number (contacts Elias + Jonte); landlord reminder/late messages are texts.
+
+**Jonte (the dealer) — the week's ending**
+- The only dealer. `ApartmentScene/Dealer_Situation/Jonte`: root has NavMeshAgent (speed 2), capsule,
+  2 AudioSources, `DealerAI` (copied from the old one), child `Model` = `Assets/Prefab/Characters/
+  Jonte.prefab` (DeliveryDriver.fbx Humanoid, `Variants/Jonte.mat` grey jacket + charcoal trousers,
+  `JonteAnimator.controller`: Speed blend tree Idle 0 / Walking 1.6 / Running 3.5 + `Shoot` trigger →
+  `Shooting` ×1.6). `weed_jar` and `Pistol` under his RightHand (gun hidden except on the final visit).
+  The old `DrugDealer` is still in the scene, **disabled** (kept for undo); `Drug_Order_Page` →
+  Jonte. It's a grey *jacket*, not a hoodie (no hood on the model) — Lennart's line changed to match.
+- `DealerAI` is now `IInteractable` ("[E] Take the jar" / "Dap him up"). `DealerAI.Instance` = the
+  one that Awoke (the disabled old one never registers).
+- Everything's on credit: `GameState.dealerDebt` / `jarsFromDealer`. At each handoff (`DrugSite.
+  CompleteHandoff`) he takes what cash you have toward the OLD debt, then adds 200 for the new jar.
+  Debt shows under the clock. The order page needs `hasDealerNumber`, no cash.
+- `JonteStory` (builds itself, static state, `ResetAll()` in `EndingScreen.ResetWeek()`): once you have
+  his number, from Day 2 14:00 he calls (answer → delivery; missed → text). Calling him (Contacts)
+  orders another; before noon he hangs up on you. Deliveries asked for while you're out start when
+  you're back in the apartment. Day 6 18:00 text. **Day 7 12:00 → `DealerAI.StartFinalVisit()`**:
+  from the street door, gun out, walks to wherever you are (re-plans, rides the elevator to your
+  floor), stops within 3m with a clear view, `PlayerStats.HoldForHit`, `JonteStory.FinalLines()`
+  (4 variants: no number / never ordered / owes / paid up — all end "Nothing personal."), `Shoot`,
+  0.45s, `EndingScreen.Play(gunShot)`. Not home → "I'm at your place" text, it happens when you get back.
+  `Phone.OnCallEnded` was added for the outgoing call → delivery.
+- Editor test keys: **F9** final visit now, **F10** Jonte calls you a delivery now.
+- Not built: the Day 6 ATM walk.
+
+**Start of the game / demo build**
+- `InstructionsPanel` (builds itself, once per launch): title card with `Resources/bedrot_simulator_logo`
+  (copy of `Images/bedrot_simulator_logo.png`) → Enter → full "how to play" panel on the LEFT (scrolls with
+  wheel / W S / arrows / PgUp PgDn; every control + where things are + the week). **H** reopens it
+  (not while typing in a field). Both pause (timeScale 0). Keep its text in sync when features change.
+- New game (`!GameState.hasData`) starts lying in bed: `Bed.WakeUpSequence` puts the player at
+  `Bed_Trigger/WakeUpPoint` (beside the bed, facing +x), camera on `sleepPoint` (ceiling) behind the
+  panel, then after Enter: black, eyes open, stare, glide up to standing.
+- Zoom is **hold right mouse** (Ctrl only in editor/desktop — in WebGL Ctrl+W closes the browser tab).
+- WebGL build for itch.io: `Builds/WebGL` (not committed).
+
+**Gun assets**: `Assets/Prefab/Pistol.prefab` (9mmPistol.fbx, whose root is
+already ×100 from Blender — scaled via a `Model` holder ×0.08 → 19cm, centred pivot, textured materials).
+`Shooting.fbx` (Ch33, 1.17s) converted to Humanoid, no loop. `SoundEffects/gunShot.mp3`.
 
 **Drug economy loop**
 - `DealerAI` + `DealerClickable` + `DrugSite`: player orders from a web portal, a dealer NPC
@@ -579,6 +638,9 @@ This is the only animation pipeline available — any NPC/character plan needs t
   nothing triggers them.
 - Baseball bat knockout: how is it found, how does the knock-out interaction work (prompt/QTE/
   raycast), what happens to the strike counter/neighbor afterward?
+- Jonte's final visit only happens in the apartment — a player who stays in the city on Day 7
+  is never shot. Fallback (he finds you in the city? a time limit?) not decided.
+- Exact time of the shot (now Day 7 12:00) and whether the ATM walk comes first.
 - Final title.
 
 ## Working with this doc

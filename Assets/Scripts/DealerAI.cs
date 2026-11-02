@@ -3,7 +3,10 @@ using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Serialization;
 
-public class DealerAI : MonoBehaviour
+// Jonte. Normal visits: walks up (NavMesh + elevator), knocks, hands over a jar on credit, dap,
+// leaves. The final visit (JonteStory, Day 7): walks straight to wherever you are with the gun out,
+// holds you in place, says his piece, shoots - EndingScreen.
+public class DealerAI : MonoBehaviour, IInteractable
 {
     public enum DealerState { Idle, Approaching, Waiting, Leaving }
 
@@ -61,7 +64,19 @@ public class DealerAI : MonoBehaviour
     public float turnAngle = 90f;
     public float turnDuration = 0.4f;
 
+    [Header("Final visit (the shot)")]
+    public GameObject gunInHand;          // Pistol under his right hand - only shown on the final visit
+    public AudioClip gunShot;
+    public float finalWalkSpeed = 1.6f;   // slower than a delivery
+    public float shootDistance = 3f;      // stops this close (and with a clear view) to you
+    public float fireDelay = 0.45f;       // from the Shoot trigger to the bang (gun raised by then)
+
     public DealerState CurrentState { get; private set; } = DealerState.Idle;
+    public bool IsFinalVisit { get; private set; }
+
+    // The dealer in the loaded scene (an object that starts disabled never registers - e.g. the old
+    // DrugDealer kept switched off in ApartmentScene)
+    public static DealerAI Instance { get; private set; }
 
     private NavMeshAgent agent;
     private Animator animator;
@@ -72,16 +87,25 @@ public class DealerAI : MonoBehaviour
     private bool jarHandedOff;
     private bool speechTriggered;
     private bool dapped;
+    private float deliverySpeed;
 
     void Awake()
     {
+        Instance = this;
         agent = GetComponent<NavMeshAgent>();
         animator = GetComponentInChildren<Animator>();
         spawnPosition = transform.position;
         spawnRotation = transform.rotation;
+        deliverySpeed = agent.speed;
 
         if (weedJarInHand != null) weedJarInHand.SetActive(false);
+        if (gunInHand != null) gunInHand.SetActive(false);
         gameObject.SetActive(false);
+    }
+
+    void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
     }
 
     void Update()
@@ -99,7 +123,7 @@ public class DealerAI : MonoBehaviour
 
     void CheckSpeechTrigger()
     {
-        if (CurrentState != DealerState.Waiting || speechTriggered || toggleSpeechPos == null) return;
+        if (IsFinalVisit || CurrentState != DealerState.Waiting || speechTriggered || toggleSpeechPos == null) return;
 
         Camera cam = Camera.main;
         if (cam == null) return;
@@ -177,7 +201,7 @@ public class DealerAI : MonoBehaviour
     // Anropas från DrugSite.OrderDrugs() när en beställning läggs
     public void StartDelivery()
     {
-        if (CurrentState != DealerState.Idle || stopPoint == null) return;
+        if (IsFinalVisit || CurrentState != DealerState.Idle || stopPoint == null) return;
 
         transform.position = spawnPosition;
         transform.rotation = spawnRotation;
@@ -187,8 +211,10 @@ public class DealerAI : MonoBehaviour
         dapped = false;
 
         if (weedJarInHand != null) weedJarInHand.SetActive(true);
+        if (gunInHand != null) gunInHand.SetActive(false);
 
         agent.enabled = true;
+        agent.speed = deliverySpeed;
         agent.Warp(spawnPosition);
         agent.isStopped = false;
         CurrentState = DealerState.Approaching;
@@ -216,9 +242,23 @@ public class DealerAI : MonoBehaviour
     // Anropas från DealerClickable. Första klicket = ta emot burken från honom (precis som förut,
     // spelaren styr själv NÄR det händer - E/klick på honom, inget som sker automatiskt).
     // Andra klicket (dappen) = skicka i väg honom.
+    // IInteractable - E / left-click on him with the crosshair (no OnMouseDown/DealerClickable needed)
+    public string PromptLabel
+    {
+        get
+        {
+            if (IsFinalVisit || CurrentState != DealerState.Waiting || dapped) return "Jonte";
+            return jarHandedOff ? "Dap him up" : "Take the jar";
+        }
+    }
+
+    public bool PromptAvailable => !IsFinalVisit && CurrentState == DealerState.Waiting && !dapped;
+
+    public void OnLookedAt(Transform player) { }
+
     public void Interact()
     {
-        if (CurrentState != DealerState.Waiting) return;
+        if (IsFinalVisit || CurrentState != DealerState.Waiting) return;
 
         if (!jarHandedOff)
         {
@@ -283,6 +323,115 @@ public class DealerAI : MonoBehaviour
         agent.enabled = true;
         agent.Warp(elevator.NpcOutsideSpot(toUp).position);
         agent.isStopped = false;
+    }
+
+    // ---------- Final visit (Day 7) ----------
+
+    // Called by JonteStory. Only from Idle (JonteStory waits out a delivery in progress - he could
+    // be inside the elevator), comes in from the street door.
+    public bool StartFinalVisit()
+    {
+        if (IsFinalVisit) return true;
+        if (CurrentState != DealerState.Idle) return false;
+        IsFinalVisit = true;
+
+        transform.position = spawnPosition;
+        transform.rotation = spawnRotation;
+        gameObject.SetActive(true);
+        if (weedJarInHand != null) weedJarInHand.SetActive(false);
+        if (gunInHand != null) gunInHand.SetActive(true);
+
+        agent.enabled = true;
+        agent.Warp(spawnPosition);
+        agent.isStopped = false;
+        agent.speed = finalWalkSpeed;
+        CurrentState = DealerState.Approaching;
+        StartCoroutine(FinalVisitRoutine());
+        return true;
+    }
+
+    IEnumerator FinalVisitRoutine()
+    {
+        PlayerStats stats = FindFirstObjectByType<PlayerStats>();
+        PlayerMovement playerBody = FindFirstObjectByType<PlayerMovement>();
+        Transform player = playerBody != null ? playerBody.transform : (Camera.main != null ? Camera.main.transform : null);
+        if (player == null) { EndingScreen.Play(gunShot); yield break; }
+
+        // Walk to the player until close with a clear view. Re-plans every 0.3s (you can move);
+        // takes the elevator when you're on the other floor.
+        var path = new NavMeshPath();
+        while (true)
+        {
+            Vector3 flat = player.position - transform.position;
+            flat.y = 0f;
+            bool sameFloor = elevator == null
+                || elevator.IsButtonOnUpperFloor(player.position) == elevator.IsButtonOnUpperFloor(transform.position);
+
+            if (sameFloor && flat.magnitude <= shootDistance && CanSee(player)) break;
+
+            if (!sameFloor)
+            {
+                yield return RideElevator(elevator.IsButtonOnUpperFloor(player.position));
+                agent.speed = finalWalkSpeed;
+                continue;
+            }
+
+            if (NavMesh.SamplePosition(player.position, out NavMeshHit hit, 3f, NavMesh.AllAreas))
+            {
+                agent.CalculatePath(hit.position, path);
+                agent.SetPath(path);
+            }
+            yield return new WaitForSeconds(0.3f);
+        }
+
+        // Got you
+        CurrentState = DealerState.Waiting;
+        agent.isStopped = true;
+        agent.velocity = Vector3.zero;
+        if (stats != null) stats.HoldForHit(transform);
+        yield return StartCoroutine(FacePoint(player.position, 0.5f));
+
+        DialogueSubtitle.Line[] lines = JonteStory.FinalLines();
+        float talk = 0f;
+        foreach (var l in lines) talk += l.delayBefore + l.duration;
+        PlayVoiceSlice(arrivalVoiceStartTime, Mathf.Min(talk, arrivalVoiceDuration + reminderVoiceDuration));
+        if (dialogueSubtitle != null) yield return StartCoroutine(dialogueSubtitle.PlayRoutine(lines));
+        else yield return new WaitForSeconds(talk);
+
+        yield return new WaitForSeconds(0.8f);   // the beat before
+        if (animator != null) animator.SetTrigger("Shoot");
+        yield return StartCoroutine(FacePoint(player.position, fireDelay));
+        EndingScreen.Play(gunShot);
+    }
+
+    // Clear line from his eyes to your camera (nothing but you in between)
+    bool CanSee(Transform player)
+    {
+        Camera cam = Camera.main;
+        if (cam == null) return true;
+        Vector3 eye = transform.position + Vector3.up * 1.6f;
+        Vector3 to = cam.transform.position - eye;
+        RaycastHit[] hits = Physics.RaycastAll(eye, to.normalized, to.magnitude, ~0, QueryTriggerInteraction.Ignore);
+        foreach (var h in hits)
+        {
+            if (h.transform.IsChildOf(transform) || h.transform.IsChildOf(player) || h.transform == cam.transform) continue;
+            return false;
+        }
+        return true;
+    }
+
+    IEnumerator FacePoint(Vector3 point, float duration)
+    {
+        Vector3 dir = point - transform.position;
+        dir.y = 0f;
+        if (dir.sqrMagnitude < 0.001f) yield break;
+        Quaternion start = transform.rotation, target = Quaternion.LookRotation(dir);
+        for (float t = 0f; t < duration; t += Time.deltaTime)
+        {
+            transform.rotation = Quaternion.Slerp(start, target, t / duration);
+            yield return null;
+        }
+        transform.rotation = target;
     }
 
     // Vrider honom ETT extra steg när han når Dealer_StopPos, oavsett vilket håll han gick in ifrån

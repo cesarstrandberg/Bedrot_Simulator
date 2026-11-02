@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 // The end of the week. Call EndingScreen.Play() from anywhere (the dealer's shot, eviction...):
 // hard cut to black, everything freezes, silence, then the week's stats one line at a time and
-// "Nothing matters." Builds its own UI, nothing to wire. F9 triggers it for testing.
+// "Nothing matters." Builds its own UI, nothing to wire. (Editor: F9 sends Jonte - see JonteStory.)
 public class EndingScreen : MonoBehaviour
 {
     public const string RestartScene = "ApartmentScene";
@@ -58,6 +58,7 @@ public class EndingScreen : MonoBehaviour
             $"Joints sold: {GameState.jointsSold}",
             $"Money earned: {GameState.moneyEarned:0} kr",
             $"Rent paid: {(GameState.rentPaid ? "yes" : "no")}",
+            $"Owed Jonte: {GameState.dealerDebt:0} kr",
         };
         foreach (string line in lines)
         {
@@ -96,6 +97,8 @@ public class EndingScreen : MonoBehaviour
     {
         GameState.ResetAll();
         Rent.ResetAll();
+        Phone.ResetAll();
+        JonteStory.ResetAll();
         UniversityPortal.nextExamDay = 1;
         JointCraftingStation.globalBudCount = 7;
     }
@@ -138,22 +141,5 @@ public class EndingScreen : MonoBehaviour
         text.rectTransform.anchoredPosition = pos;
         text.rectTransform.sizeDelta = new Vector2(1400f, 500f);
         return text;
-    }
-}
-
-// Test trigger - remove once the dealer's shot calls EndingScreen.Play() for real
-public class EndingScreenDebugKey : MonoBehaviour
-{
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    static void Spawn()
-    {
-        var go = new GameObject("EndingScreenDebugKey");
-        DontDestroyOnLoad(go);
-        go.AddComponent<EndingScreenDebugKey>();
-    }
-
-    void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.F9)) EndingScreen.Play();
     }
 }

@@ -29,7 +29,7 @@ public static class Rent
         if (day == dueDay - 1 && hour >= 8f && remindedForDay != dueDay)
         {
             remindedForDay = dueDay;
-            Notify.Show($"Rent due tomorrow at {DueHour:00}:00 - {amountDue:0} kr");
+            Phone.Text("Landlord", $"Reminder: rent {amountDue:0} kr is due tomorrow {DueHour:00}:00. It is taken automatically.");
         }
 
         if (day > dueDay || (day == dueDay && hour >= DueHour)) TryPay();
@@ -63,6 +63,6 @@ public static class Rent
             _ => "Landlord: \"That's it. Eviction papers are being drawn up.\""
         };
         Notify.Show($"Couldn't pay rent! Now {amountDue:0} kr, due Day {dueDay}", 5f);
-        Notify.Show(landlord, 6f);
+        Phone.Text("Landlord", landlord.Replace("Landlord: ", "").Trim('"'));
     }
 }

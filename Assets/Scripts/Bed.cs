@@ -17,6 +17,12 @@ public class Bed : MonoBehaviour
     public float lieDownDuration = 2f;
     public float sleepDuration = 4f;
 
+    [Header("Wake up here on a new game")]
+    public bool wakeUpOnNewGame = true;
+    public Transform wakeUpPoint;       // where the player stands after getting out of bed
+    public float wakeDarkness = 0.8f;   // black screen after the instructions close
+    public float wakeStare = 1.2f;      // staring at the ceiling before getting up
+
     [Header("Lock Player Settings")]
     public MonoBehaviour[] scriptsToDisableDuringSleep;
 
@@ -38,6 +44,85 @@ public class Bed : MonoBehaviour
             c.a = 0f;
             fadeImage.color = c;
         }
+
+        // Fresh game (not coming back in from the city): start lying in this bed
+        if (wakeUpOnNewGame && !GameState.hasData && wakeUpPoint != null && cameraTransform != null && sleepPoint != null)
+            StartCoroutine(WakeUpSequence());
+    }
+
+    IEnumerator WakeUpSequence()
+    {
+        isSleeping = true;
+
+        // Put the player beside the bed, everything that moves the camera off
+        PlayerMovement body = FindFirstObjectByType<PlayerMovement>();
+        MouseLook look = cameraTransform.GetComponent<MouseLook>();
+        PlayerInteraction hands = cameraTransform.GetComponentInParent<PlayerInteraction>();
+        if (hands == null) hands = FindFirstObjectByType<PlayerInteraction>();
+        if (body != null)
+        {
+            Rigidbody rb = body.GetComponent<Rigidbody>();
+            body.transform.SetPositionAndRotation(wakeUpPoint.position, wakeUpPoint.rotation);
+            if (rb != null) { rb.position = wakeUpPoint.position; rb.rotation = wakeUpPoint.rotation; rb.linearVelocity = Vector3.zero; }
+            Physics.SyncTransforms();
+            body.enabled = false;
+        }
+        if (look != null) look.enabled = false;
+        if (hands != null) hands.enabled = false;
+
+        Vector3 standLocalPos = cameraTransform.localPosition;
+        cameraTransform.position = sleepPoint.position;
+        cameraTransform.rotation = sleepPoint.rotation;
+
+        // Lying here (ceiling view) while the title / instructions are up (timeScale 0). One frame
+        // first so the panel (built the same frame) has paused the game.
+        yield return null;
+        while (Time.timeScale == 0f || InstructionsPanel.IsOpen)
+        {
+            cameraTransform.position = sleepPoint.position;
+            cameraTransform.rotation = sleepPoint.rotation;
+            yield return null;
+        }
+
+        // Eyes shut... open
+        SetFade(1f);
+        yield return new WaitForSeconds(wakeDarkness);
+        for (float t = 0f; t < fadeDuration; t += Time.deltaTime)
+        {
+            SetFade(1f - Mathf.SmoothStep(0f, 1f, t / fadeDuration));
+            yield return null;
+        }
+        SetFade(0f);
+        yield return new WaitForSeconds(wakeStare);
+
+        // Get up: glide from the pillow to standing
+        Vector3 fromPos = sleepPoint.position;
+        Quaternion fromRot = sleepPoint.rotation;
+        for (float t = 0f; t < lieDownDuration; t += Time.deltaTime)
+        {
+            float p = Mathf.SmoothStep(0f, 1f, t / lieDownDuration);
+            Transform parent = cameraTransform.parent;
+            Vector3 toPos = parent != null ? parent.TransformPoint(standLocalPos) : standLocalPos;
+            Quaternion toRot = parent != null ? parent.rotation : Quaternion.identity;
+            cameraTransform.position = Vector3.Lerp(fromPos, toPos, p);
+            cameraTransform.rotation = Quaternion.Slerp(fromRot, toRot, p);
+            yield return null;
+        }
+        cameraTransform.localPosition = standLocalPos;
+        cameraTransform.localRotation = Quaternion.identity;
+
+        if (body != null) body.enabled = true;
+        if (look != null) look.enabled = true;
+        if (hands != null) hands.enabled = true;
+        isSleeping = false;
+    }
+
+    void SetFade(float a)
+    {
+        if (fadeImage == null) return;
+        Color c = fadeImage.color;
+        c.a = a;
+        fadeImage.color = c;
     }
 
     void OnMouseDown()

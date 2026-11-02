@@ -62,8 +62,15 @@ public class Classmate : MonoBehaviour
         yield return Say("...Bro. Not in HERE.");
         GameState.metClassmate = true;
         GameState.hasDealerNumber = true;
-        yield return new WaitForSeconds(2f);
-        Notify.Show($"{classmateName} sent you a contact: <b>{dealerName}</b>", 3.5f);
+        yield return new WaitForSeconds(4f);
+        SendNumber();
+    }
+
+    void SendNumber()
+    {
+        Phone.AddContact(classmateName);
+        Phone.AddContact(dealerName);
+        Phone.Text(classmateName, $"{dealerName}. 073-118 42 90. Don't be weird with him.");
     }
 
     IEnumerator Talk()
@@ -80,7 +87,8 @@ public class Classmate : MonoBehaviour
 
         GameState.metClassmate = true;
         GameState.hasDealerNumber = true;
-        Notify.Show($"New contact: <b>{dealerName}</b>", 3.5f);
+        yield return new WaitForSeconds(3f);
+        SendNumber();
         if (looker != null && head != null) looker.Look(head, 0f, 1.5f);   // a last look, then back to the lecture
     }
 

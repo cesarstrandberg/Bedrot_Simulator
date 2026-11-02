@@ -94,6 +94,7 @@ public class DayClock : MonoBehaviour
         int h = Mathf.FloorToInt(Hour);
         int m = Mathf.FloorToInt((Hour - h) * 60f);
         string pocket = GameState.pocketJoints > 0 ? $"\nJoints in pocket: {GameState.pocketJoints}" : "";
+        if (GameState.dealerDebt > 0f) pocket += $"\nOwe Jonte: {GameState.dealerDebt:0} kr";
         clockText.text = $"Day {Day}  {h:00}:{m:00}\n<size=70%>Rent {Rent.amountDue:0} kr - Day {Rent.dueDay}{pocket}</size>";
     }
 

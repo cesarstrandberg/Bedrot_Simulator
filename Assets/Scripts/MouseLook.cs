@@ -48,7 +48,13 @@ public class MouseLook : MonoBehaviour
         transform.localRotation = Quaternion.Euler(xRotation + xSway, ySway, zSway);
         playerBody.Rotate(Vector3.up * mouseX);
 
-        if (Input.GetKey(KeyCode.LeftControl))
+        // Zoom: hold right mouse (not while the phone is up - right click is "back" there).
+        // Ctrl only in the editor: in a browser build Ctrl+W (zoom + walk) closes the tab.
+        bool zoom = Input.GetMouseButton(1) && !Phone.IsUp;
+#if UNITY_EDITOR || !UNITY_WEBGL
+        zoom |= Input.GetKey(KeyCode.LeftControl);
+#endif
+        if (zoom)
         {
             cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, zoomFOV, 10f * Time.deltaTime);
         }

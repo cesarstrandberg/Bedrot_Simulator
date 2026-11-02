@@ -43,16 +43,24 @@ public class DrugSite : MonoBehaviour
     {
         if (playerStats == null) return;
 
-        if (playerStats.money < price)
+        // Jonte is the only dealer - you need his number first (Elias, lecture hall). No cash
+        // needed: every jar is on credit.
+        if (!GameState.hasDealerNumber)
         {
-            if (statusText != null) statusText.text = "Not enough money.";
+            if (statusText != null) statusText.text = "You don't know anyone who delivers.";
+            return;
+        }
+        if (dealerAI == null || dealerAI.CurrentState != DealerAI.DealerState.Idle || dealerAI.IsFinalVisit)
+        {
+            if (statusText != null) statusText.text = "Jonte is already on his way.";
             return;
         }
 
-        if (statusText != null) statusText.text = "Order placed. The dealer is on their way.";
+        if (statusText != null) statusText.text = "Order placed. Jonte is on his way. (On credit)";
         if (orderButton != null) orderButton.interactable = false;
 
-        if (dealerAI != null) dealerAI.StartDelivery();
+        JonteStory.PrepareDeliveryLines(dealerAI);
+        dealerAI.StartDelivery();
 
         Debug.Log("Drug order placed for " + price + " kr.");
     }
@@ -62,7 +70,19 @@ public class DrugSite : MonoBehaviour
     {
         if (playerStats == null) return;
 
-        playerStats.money -= price;
+        // He takes what you've got toward the old tab, then this jar goes on it too
+        float paid = 0f;
+        if (GameState.dealerDebt > 0f && playerStats.money > 0f)
+        {
+            paid = Mathf.Min(playerStats.money, GameState.dealerDebt);
+            playerStats.money -= paid;
+            GameState.dealerDebt -= paid;
+        }
+        GameState.dealerDebt += price;
+        GameState.jarsFromDealer++;
+        Notify.Show(paid > 0f
+            ? $"Jonte took {paid:0} kr.\n<size=70%>New jar on credit - you owe him {GameState.dealerDebt:0} kr</size>"
+            : $"Jar on credit.\n<size=70%>You owe Jonte {GameState.dealerDebt:0} kr</size>", 4f);
 
         if (weedJarPickupPrefab != null && dealerAI != null && dealerAI.weedJarInHand != null)
         {
@@ -73,6 +93,6 @@ public class DrugSite : MonoBehaviour
         if (statusText != null) statusText.text = "";
         if (orderButton != null) orderButton.interactable = true;
 
-        Debug.Log("Dealer delivered a new jar for " + price + " kr.");
+        Debug.Log("Jonte delivered a jar on credit. Debt now " + GameState.dealerDebt + " kr.");
     }
 }

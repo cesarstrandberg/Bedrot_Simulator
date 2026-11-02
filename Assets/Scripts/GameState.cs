@@ -23,6 +23,8 @@ public static class GameState
     // Story
     public static bool metClassmate;      // Elias gave you the joint (lecture hall)
     public static bool hasDealerNumber;   // ...and Jonte's number
+    public static float dealerDebt;       // what you owe Jonte - every jar is on credit (DrugSite)
+    public static int jarsFromDealer;     // jars he's delivered
 
     // Fresh game (EndingScreen restart). hasData = false makes PlayerStats/DayClock use their own
     // starting values again.
@@ -35,6 +37,8 @@ public static class GameState
         moneyEarned = 0f;
         rentPaid = false;
         metClassmate = hasDealerNumber = false;
+        dealerDebt = 0f;
+        jarsFromDealer = 0;
     }
 
     public static void Save()
