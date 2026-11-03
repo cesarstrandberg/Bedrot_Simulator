@@ -156,7 +156,8 @@ This is the only animation pipeline available — any NPC/character plan needs t
   `Walking` state (Walking.fbx) added to `TeacherAnimator.controller`; `applyRootMotion` off in code.
 - **Ground snap** (`PlayerMovement.SnapToGround`): the hall's steps are 11cm/2m; the capsule got
   tossed up on each edge and floated. While not jumping with floor within `snapDistance`, upward
-  speed is removed and you're pulled down. Rigidbody interpolation is now on (set in code).
+  speed is removed and you're pulled down. **Don't turn on Rigidbody interpolation on the player**:
+  MouseLook turns the body by transform, interpolation overwrote it every frame → glitchy looking (tried, reverted).
 - **Generated sounds** (`ProceduralAudio`, `Ambience` builds itself): lecture hall room tone, city
   traffic, Elias whispers each line (`Classmate.PlayWhisper`). A real clip at
   `Resources/Ambience_<SceneName>` replaces the generated one. No laugh yet (needs a real file).

@@ -33,7 +33,6 @@ public class PlayerMovement : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody>();
-        rb.interpolation = RigidbodyInterpolation.Interpolate;   // smooth camera over steps (was off)
         col = GetComponent<CapsuleCollider>();
         cam = GetComponentInChildren<Camera>(); // Hittar kameran automatiskt
 
