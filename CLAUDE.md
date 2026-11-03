@@ -2,10 +2,12 @@
 
 Working title, taken from the repo name. Not finalized.
 
-> **📌 START OF NEXT SESSION (left 2026-11-02):** Jonte + the shot are built (see "Jonte" below) but
-> **never play-tested** — Claude can't run Play mode. Ask Cesar how his test went (editor keys: F10 =
-> Jonte calls + delivers, F9 = final visit, both in the apartment). Then: the shot trigger time
-> (now Day 7 12:00, `JonteStory.FinalHour`) and hiding in the city (see Open questions).
+> **📌 START OF NEXT SESSION (left 2026-11-03):** a big batch of playtest fixes landed (commits
+> 70f6f51..e9daa6d), **none play-tested** — Claude can't run Play mode. Ask Cesar how they feel:
+> Göran walking up to you + zoom, Lennart walking up to you, ground snap on the lecture stairs,
+> volumes, 8-min days (F4 = skip a day), the objective line, the generated sounds. Still waiting on
+> his answers: phone-out (Elias or Jonte?), middle finger (no hand model), a real laugh + city sound
+> files (he downloads), day length OK?
 
 ## The pitch
 
@@ -147,6 +149,19 @@ This is the only animation pipeline available — any NPC/character plan needs t
   the scene — no schedule yet (planned: weekdays 09:00). `LectureSeat` on `Seats/PlayerSeat`: E to
   sit (movement off, Rigidbody kinematic, camera at 1.15m, mouse-look + hands still work), E to
   stand (back where you were). `LectureSeat.PlayerSeated` static flag for later story checks.
+- **Lennart walks up to you (2026-11-03)**: the moment the scene starts he says "Oh. Look who it is."
+  while walking straight at you (no NavMesh in the hall — straight line, the stage→door floor is flat
+  and clear; feet follow the floor by raycast), stops at `stopDistance` 1.6m, `PlayerStats.FocusOn`
+  (hold + zoom) for the rest of `LateRemark`, then walks back to his spot and starts slide 1.
+  `Walking` state (Walking.fbx) added to `TeacherAnimator.controller`; `applyRootMotion` off in code.
+- **Ground snap** (`PlayerMovement.SnapToGround`): the hall's steps are 11cm/2m; the capsule got
+  tossed up on each edge and floated. While not jumping with floor within `snapDistance`, upward
+  speed is removed and you're pulled down. Rigidbody interpolation is now on (set in code).
+- **Generated sounds** (`ProceduralAudio`, `Ambience` builds itself): lecture hall room tone, city
+  traffic, Elias whispers each line (`Classmate.PlayWhisper`). A real clip at
+  `Resources/Ambience_<SceneName>` replaces the generated one. No laugh yet (needs a real file).
+- **Objective line** (`Objective.cs`, builds itself): top-centre "what to do now", worked out from
+  GameState/JonteStory/clock every 0.5s. Edit texts in `Objective.Current()`.
 - **The classmate** (`Seats/ClassmateSeat/Classmate_Elias`, a Student_Rami + `Classmate`): 15s after
   you sit he turns his head to you and just talks — timed whisper subtitles (`linesBefore`/`linesAfter`),
   no key presses, no freeze (Cesar: having to press keys to advance him felt wrong; the earlier
