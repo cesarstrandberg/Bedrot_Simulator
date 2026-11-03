@@ -8,6 +8,13 @@ Working title, taken from the repo name. Not finalized.
 > volumes, 8-min days (F4 = skip a day), the objective line, the generated sounds. Still waiting on
 > his answers: phone-out (Elias or Jonte?), middle finger (no hand model), a real laugh + city sound
 > files (he downloads), day length OK?
+>
+> **To do next (Cesar, 2026-11-04):**
+> - Elias's whisper (the "air puffing") — keep it but lower it, AND give him a quiet voice under it,
+>   built like Lennart's (`TeacherVoice` recipe, own pitch).
+> - Lecture hall murmur: lower still, and from separate spots in the room (a few 3D sources at
+>   different seats, each its own talker, not one 2D wall of everyone talking all the time; maybe
+>   gaps where a group goes quiet).
 
 ## The pitch
 
@@ -654,8 +661,14 @@ already ×100 from Blender — scaled via a `Model` holder ×0.08 → 19cm, cent
     dropped the joint butt but left it in `heldObject`, so after *every* joint the player counted as
     holding something and the crosshair raycast never ran (nothing clickable until pressing E).
     Fixed by clearing `heldObject`/`heldObjectRb`/`heldObjectCollider` after consuming.
-  - Play-mode testing through the MCP doesn't work unattended: game time doesn't advance while the
-    Unity window is unfocused, so traces just show a frozen NPC.
+  - Play-mode testing through the MCP works if you set `Application.runInBackground = true` right after
+    entering Play mode (otherwise game time doesn't advance while Unity is unfocused). Simulate arriving
+    from the city with `GameState.Save(); hasData = true; nextSpawnPoint = "Apartment_Entrance";` +
+    `SceneManager.LoadScene`, and `Time.timeScale = 1` (the instructions panel pauses it).
+  - **Elevator start floor bug (fixed 2026-11-04)**: the cab has Rigidbody interpolation, so setting
+    only `transform.position` in `Awake` got overwritten from the body — cab stayed upstairs while
+    `IsUp` said down; you walked into the empty shaft and it came down on you (green screen/freezes =
+    camera inside the cab floor). `Awake` now sets `rb.position` too. Verified in Play mode.
 - More environment/scene work around Tegnérlunden once the above systems exist to populate it.
 
 ## Open questions (fill in as they get decided)

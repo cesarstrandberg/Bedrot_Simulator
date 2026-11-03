@@ -54,7 +54,14 @@ public class Elevator : MonoBehaviour
         // ground floor, so the cab waits down there. Only a brand-new game uses startsUp.
         IsUp = GameState.hasData ? false : startsUp;
         Transform start = IsUp ? upPoint : downPoint;
-        if (start != null) transform.position = start.position;
+        if (start != null)
+        {
+            // Move the Rigidbody too: with interpolation on, only setting the transform got overwritten
+            // straight back from the body, so the cab stayed upstairs while the script thought it was
+            // down - you walked into the empty shaft and the cab came down on top of you.
+            transform.position = start.position;
+            rb.position = start.position;
+        }
     }
 
     // Called by ElevatorButton. Sends it to whichever stop it isn't at.
