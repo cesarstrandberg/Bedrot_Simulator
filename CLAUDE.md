@@ -9,12 +9,33 @@ Working title, taken from the repo name. Not finalized.
 > his answers: phone-out (Elias or Jonte?), middle finger (no hand model), a real laugh + city sound
 > files (he downloads), day length OK?
 >
-> **To do next (Cesar, 2026-11-04):**
+> **To do next (Cesar, 2026-11-04)** — nothing below is built yet:
+> - **Buyers smoke it**: after you sell, the buyer lights the joint up, smokes it and walks away
+>   (not just stands there). Needs a smoking arm pose/clip on the pedestrian models.
+> - **Jonte walks up to you like Göran**: wherever you are in the apartment (elevator if needed,
+>   proximity start, no click) — but NO camera zoom for him. Reuse `NeighborAI.WalkUpToPlayer` logic.
+> - **Bug: "Nah I'm good, come back tomorrow." never leaves the screen** (`WeedBuyer.cs:54`,
+>   `Notify.Show`). Likely cause: every E press on a sold-out buyer queues another 3s message.
+>   Fix idea: don't queue a message identical to the one showing/queued.
+> - **Day 3+ is empty**: another lecture where Elias asks if you want to party; then he (or a bunch
+>   of people) come over to your place. Design not done — Cesar: "more on that later". Ask first.
 > - Elias's whisper (the "air puffing") — keep it but lower it, AND give him a quiet voice under it,
 >   built like Lennart's (`TeacherVoice` recipe, own pitch).
 > - Lecture hall murmur: lower still, and from separate spots in the room (a few 3D sources at
 >   different seats, each its own talker, not one 2D wall of everyone talking all the time; maybe
 >   gaps where a group goes quiet).
+> - **Laugh** in the lecture hall (needs a real recording — Cesar downloads, e.g. Pixabay/Freesound).
+> - **Real city ambience** to replace the generated traffic (drop it in as
+>   `Resources/Ambience_City_Environment`, picked up automatically).
+> - **Phone out when the number is sent**: Cesar said "Jonte", but it's Elias who sends it — ask
+>   which. Same phone model as the player's (`Resources/Phone.prefab`).
+> - **Middle finger** gesture on a key (key not chosen). No hand model and no Blender — ask: on-screen
+>   hand image OK, or a model?
+> - Day length: set to 8 min (`DayClock.minutesPerDay`) without an answer — confirm with Cesar.
+> - Not play-tested yet: Göran walk-up + zoom + reversed voice, Lennart walk-up/back, ground snap on
+>   the lecture steps, volumes, objective line, generated sounds, Lennart's voice + murmur.
+> - Still open from before: hiding in the city on Day 7 (Jonte's final visit only happens in the
+>   apartment), exact time of the shot / ATM walk.
 
 ## The pitch
 
