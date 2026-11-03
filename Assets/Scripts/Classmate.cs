@@ -92,12 +92,36 @@ public class Classmate : MonoBehaviour
         if (looker != null && head != null) looker.Look(head, 0f, 1.5f);   // a last look, then back to the lecture
     }
 
+    [Header("Röst (viskning)")]
+    [Range(0f, 1f)] public float whisperVolume = 0.5f;
+    AudioSource voice;
+
     IEnumerator Say(string line)
     {
         whisper.text = $"<color=#9fb7c9><i>{classmateName} (whispering):</i></color> <i>{line}</i>";
-        yield return new WaitForSeconds(1.4f + line.Length * 0.055f);
+        float duration = 1.4f + line.Length * 0.055f;
+        PlayWhisper(line, duration * 0.85f);
+        yield return new WaitForSeconds(duration);
         whisper.text = "";
         yield return new WaitForSeconds(0.5f);
+    }
+
+    // A whisper as long as the line (generated, see ProceduralAudio), from where he sits.
+    void PlayWhisper(string line, float seconds)
+    {
+        if (voice == null)
+        {
+            voice = gameObject.AddComponent<AudioSource>();
+            voice.playOnAwake = false;
+            voice.spatialBlend = 0.85f;
+            voice.minDistance = 0.8f;
+            voice.maxDistance = 8f;
+            voice.rolloffMode = AudioRolloffMode.Linear;
+        }
+        voice.Stop();
+        voice.clip = ProceduralAudio.Whisper(seconds, line.GetHashCode());
+        voice.volume = whisperVolume;
+        voice.Play();
     }
 
     void DropJoint()
