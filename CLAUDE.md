@@ -93,12 +93,14 @@ This is the only animation pipeline available — any NPC/character plan needs t
 - `PlayerStats`: money, hunger, thirst, craving (weed withdrawal), highLevel (weed), drunkLevel
   (alcohol) all ticking over time. Munchies mechanic (being high triples hunger rate). Passing out
   from being too drunk/high/thirsty triggers a full dizzy → fall → puke → blackout → fade → sleep →
-  wake-up-hungry sequence. Weed pass-out now takes 4 joints instead of 3 (first 3 build up the high
+  wake-up-hungry sequence. High and drunk wear off (`highDecay`/`drunkDecay`, ~2 min per joint/beer).
+  `needsCanPassYouOut` (off for testing): thirst at 100 doesn't knock you out. Weed pass-out now takes 4 joints instead of 3 (first 3 build up the high
   without maxing it out) — changed deliberately to leave room for the neighbor's 3-strike escalation
   to fully play out before the player can black out, see Neighbor system below.
 
 **Day clock & scenes**
-- `DayClock` (one per scene): `Day`/`Hour`, runs at `realMinutesPerDay` (24), rotates the scene's
+- `DayClock` (one per scene): `Day`/`Hour`, runs at `minutesPerDay` (8; renamed from
+  `realMinutesPerDay` so the old 24 in the scenes is ignored), **F4** = skip a day (testing), rotates the scene's
   Directional Light by the hour (procedural skybox does sunrise/sunset/night) and dims ambient at
   night; builds its own "Day 1  08:00" corner text. `Bed` calls `SkipHours()` with a random 5–7h
   (new day only if that passes midnight).

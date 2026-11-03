@@ -9,7 +9,9 @@ public class DayClock : MonoBehaviour
     public static DayClock Instance { get; private set; }
 
     [Header("Tid")]
-    public float realMinutesPerDay = 24f;   // One full in-game day (24h) takes this many real minutes
+    // One full in-game day (24h) takes this many real minutes. Renamed from realMinutesPerDay so the
+    // old 24 saved in the scenes doesn't override the new default - 24 min/day was far too slow.
+    public float minutesPerDay = 8f;
     public float startHour = 8f;
 
     [Header("Sol")]
@@ -41,7 +43,14 @@ public class DayClock : MonoBehaviour
 
     void Update()
     {
-        Hour += Time.deltaTime * 24f / (realMinutesPerDay * 60f);
+        Hour += Time.deltaTime * 24f / (minutesPerDay * 60f);
+
+        // Testing: F4 jumps one day ahead (same time of day). Rent/Jonte catch up on their own.
+        if (Input.GetKeyDown(KeyCode.F4) && !TypingInField())
+        {
+            Day++;
+            Notify.Show("Skipped to Day " + Day);
+        }
         if (Hour >= 24f)
         {
             Hour -= 24f;
@@ -51,6 +60,12 @@ public class DayClock : MonoBehaviour
         UpdateSun();
         UpdateText();
         Rent.Tick(Day, Hour);
+    }
+
+    static bool TypingInField()
+    {
+        var sel = UnityEngine.EventSystems.EventSystem.current != null ? UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject : null;
+        return sel != null && (sel.GetComponent<TMP_InputField>() != null || sel.GetComponent<UnityEngine.UI.InputField>() != null);
     }
 
     // Jumps the clock forward (sleeping). Rolls over into the next day only if it passes midnight.

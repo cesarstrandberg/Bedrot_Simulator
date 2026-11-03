@@ -32,6 +32,10 @@ public class SceneDoor : MonoBehaviour
         {
             Image black = BuildOverlay();
 
+            // You kept walking during the fade-out and went through the wall behind the door, so the
+            // player stands still from touching the door until they're placed in the new scene.
+            Freeze(FindFirstObjectByType<PlayerMovement>(), true);
+
             yield return Fade(black, 0f, 1f, fade);
 
             PlayerInteraction hands = FindFirstObjectByType<PlayerInteraction>();
@@ -39,14 +43,36 @@ public class SceneDoor : MonoBehaviour
             GameState.Save();
             GameState.nextSpawnPoint = spawnId;
             yield return SceneManager.LoadSceneAsync(scene);
+            PlayerMovement newPlayer = FindFirstObjectByType<PlayerMovement>();
+            Freeze(newPlayer, true);   // don't let it fall/walk before it's been moved to the spawn point
             yield return null; // let the new scene's Awake/Start run (stats/clock read GameState there)
 
             PlacePlayer(spawnId);
+            Physics.SyncTransforms();
             ignoreUntil = Time.unscaledTime + 1.5f;
 
             yield return Fade(black, 1f, 0f, fade);
+            Freeze(newPlayer, false);
             transitioning = false;
             Destroy(gameObject);
+        }
+
+        static void Freeze(PlayerMovement player, bool frozen)
+        {
+            if (player == null) return;
+            player.enabled = !frozen;
+            Rigidbody rb = player.GetComponent<Rigidbody>();
+            if (rb == null) return;
+            if (frozen)
+            {
+                if (!rb.isKinematic) rb.linearVelocity = Vector3.zero;
+                rb.isKinematic = true;
+            }
+            else
+            {
+                rb.isKinematic = false;
+                if (!rb.isKinematic) rb.linearVelocity = Vector3.zero;
+            }
         }
 
         static void PlacePlayer(string spawnId)
@@ -75,7 +101,7 @@ public class SceneDoor : MonoBehaviour
             {
                 rb.position = pos;
                 rb.rotation = yaw;
-                rb.linearVelocity = Vector3.zero;
+                if (!rb.isKinematic) rb.linearVelocity = Vector3.zero;
             }
         }
 

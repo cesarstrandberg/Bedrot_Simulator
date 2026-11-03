@@ -8,6 +8,7 @@ public class LightSwitch : MonoBehaviour
 
     [Header("Ljud")]
     public AudioSource switchSound; // <-- Här är din nya slot för ljudet!
+    [Range(0f, 1f)] public float switchVolume = 0.15f;   // overrides the AudioSource's volume - was far too loud
 
     [Header("Lampor & Ljus")]
     public Light[] roomLights;
@@ -22,8 +23,23 @@ public class LightSwitch : MonoBehaviour
 
     private bool isCurrentlyOn;
 
+    // The switch's AudioSource had Play On Awake on, so it clicked at full blast every time the
+    // apartment loaded (game start, coming in from the city). Only a real flip should make a sound.
+    void Awake() { SilenceOnLoad(); }
+
+    void SilenceOnLoad()
+    {
+        // The kitchen switch has its AudioSource but the slot was never filled - use the one on itself.
+        if (switchSound == null) switchSound = GetComponent<AudioSource>();
+        if (switchSound == null) return;
+        switchSound.playOnAwake = false;
+        switchSound.Stop();
+        switchSound.volume = switchVolume;
+    }
+
     void Start()
     {
+        SilenceOnLoad();
         isCurrentlyOn = isLightOnFromStart;
         UpdateSwitchAndLights();
     }
@@ -36,6 +52,7 @@ public class LightSwitch : MonoBehaviour
         // --- SPELA LJUDET ---
         if (switchSound != null)
         {
+            switchSound.volume = switchVolume;
             switchSound.Play();
         }
 

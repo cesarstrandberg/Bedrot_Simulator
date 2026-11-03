@@ -130,7 +130,10 @@ public class NeighborAI : MonoBehaviour
     {
         if (footstepSource == null || footstepSound == null) return;
 
-        if (currentSpeed > 0.1f)
+        // currentSpeed is forced to full walk speed for the whole "moving" state (for the animator),
+        // which kept the steps going for ~2s while he already stood at the door. Use his real speed.
+        float stepSpeed = (agent != null && agent.enabled) ? agent.velocity.magnitude : currentSpeed;
+        if (stepSpeed > 0.1f)
         {
             footstepTimer -= Time.deltaTime;
             if (footstepTimer <= 0f)

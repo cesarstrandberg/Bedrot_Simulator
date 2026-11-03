@@ -23,6 +23,7 @@ public class Elevator : MonoBehaviour
     // One sound for the whole trip: starts when it starts moving and is left to play out (not looped,
     // not cut off on arrival). Keep travelTime about the clip's length so they finish together.
     [FormerlySerializedAs("moveLoopSound")] public AudioSource moveSound;
+    [Range(0f, 1f)] public float moveVolume = 0.3f;   // overrides the AudioSource's volume - was far too loud
 
     [Header("NPC-åkning (Dealer/Delivery/Neighbour)")]
     public Transform npcInsideSpot;        // child of the elevator, where an NPC stands while riding (faces the door)
@@ -49,7 +50,9 @@ public class Elevator : MonoBehaviour
         rb.useGravity = false;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
 
-        IsUp = startsUp;
+        // Coming in from the city (GameState.hasData = arrived through a SceneDoor) you're on the
+        // ground floor, so the cab waits down there. Only a brand-new game uses startsUp.
+        IsUp = GameState.hasData ? false : startsUp;
         Transform start = IsUp ? upPoint : downPoint;
         if (start != null) transform.position = start.position;
     }
@@ -151,7 +154,7 @@ public class Elevator : MonoBehaviour
         IsMoving = true;
         yield return new WaitForSeconds(departDelay);
 
-        if (moveSound != null) moveSound.Play();
+        if (moveSound != null) { moveSound.volume = moveVolume; moveSound.Play(); }
 
         Vector3 from = rb.position;
         Vector3 to = target.position;

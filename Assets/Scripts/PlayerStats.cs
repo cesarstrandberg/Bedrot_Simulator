@@ -25,6 +25,15 @@ public class PlayerStats : MonoBehaviour
     public Transform playerCamera;
     public GameObject pukePrefab;
     public AudioClip pukeSound;
+    [Range(0f, 1f)] public float pukeVolume = 0.35f;   // was full volume
+
+    [Header("Wearing off (per real second)")]
+    public float highDecay = 0.0022f;    // one joint (0.26) fades in about 2 minutes
+    public float drunkDecay = 0.0017f;   // one beer (0.2) fades in about 2 minutes
+
+    [Header("Testing")]
+    // Off = hunger/thirst/craving never knock you out, they just sit at 100. Turn on for the real game.
+    public bool needsCanPassYouOut = false;
 
     [Header("Sleep & Fade UI")]
     public Image fadeImage;
@@ -84,6 +93,10 @@ public class PlayerStats : MonoBehaviour
         // ==========================================
         // 2. WEED & ALKOHOL EFFEKTER
         // ==========================================
+        // Both wear off slowly instead of lasting forever.
+        highLevel = Mathf.Max(0f, highLevel - highDecay * Time.deltaTime);
+        drunkLevel = Mathf.Max(0f, drunkLevel - drunkDecay * Time.deltaTime);
+
         if (highVolume != null)
         {
             highVolume.weight = Mathf.Lerp(highVolume.weight, Mathf.Clamp01(highLevel), Time.deltaTime * 0.5f);
@@ -112,7 +125,7 @@ public class PlayerStats : MonoBehaviour
         }
 
         // 3. KOLLA OM VI SKA DÄCKA (Av fylla, weed, hunger eller törst!)
-        if (!isHeld && (drunkLevel >= 1.0f || highLevel >= 1.05f || thirst >= 100f))
+        if (!isHeld && (drunkLevel >= 1.0f || highLevel >= 1.05f || (needsCanPassYouOut && thirst >= 100f)))
         {
             StartCoroutine(PassOutSequence());
         }
@@ -262,7 +275,7 @@ public class PlayerStats : MonoBehaviour
             Quaternion flatRotation = Quaternion.Euler(-90f, playerCamera.eulerAngles.y, 0f);
             Instantiate(pukePrefab, spawnPos, flatRotation);
 
-            if (pukeSound != null) AudioSource.PlayClipAtPoint(pukeSound, spawnPos, 1.0f);
+            if (pukeSound != null) AudioSource.PlayClipAtPoint(pukeSound, spawnPos, pukeVolume);
         }
 
         if (!knockedOut) yield return new WaitForSeconds(1.5f);

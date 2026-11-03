@@ -40,7 +40,7 @@ public class Phone : MonoBehaviour
         if (DayClock.Instance != null) { m.day = DayClock.Instance.Day; m.hour = DayClock.Instance.Hour; }
         messages.Add(m);
         instance.Popup(from, "MESSAGES", text);
-        instance.Play(instance.buzzClip, 0.8f);
+        instance.Play(instance.buzzClip, 0.3f);   // was 0.8 - too loud
         instance.Refresh();
     }
 
@@ -251,7 +251,7 @@ public class Phone : MonoBehaviour
         answerPressed = false;
         RectTransform card = Popup(from, "INCOMING CALL", "<color=#9be29b>[Tab]</color> Answer", seconds);
         ringSource.clip = ringClip;
-        ringSource.volume = 0.6f;
+        ringSource.volume = 0.35f;
         ringSource.Play();
 
         float t = 0f;
@@ -280,7 +280,7 @@ public class Phone : MonoBehaviour
         openThread = name;
         callStatus = "Calling...";
         Refresh();
-        for (int i = 0; i < 3; i++) { Play(beepClip, 0.5f); yield return new WaitForSeconds(1.6f); }
+        for (int i = 0; i < 3; i++) { Play(beepClip, 0.25f); yield return new WaitForSeconds(1.6f); }
 
         if (lines == null)
         {
@@ -323,7 +323,7 @@ public class Phone : MonoBehaviour
         StopCoroutine(timer);
         callStatus = "Call ended";
         Refresh();
-        Play(beepClip, 0.4f);
+        Play(beepClip, 0.2f);
         yield return new WaitForSeconds(1.2f);
         callRoutine = null;
         page = Page.Home;
