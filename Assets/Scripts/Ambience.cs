@@ -29,7 +29,8 @@ public class Ambience : MonoBehaviour
     void ForScene(string scene)
     {
         AudioClip clip = Resources.Load<AudioClip>("Ambience_" + scene);
-        float volume = 0.25f;
+        // Lecture hall = students murmuring (Resources/Ambience_LectureHall.wav), kept very low
+        float volume = scene == "LectureHall" ? 0.06f : 0.25f;
         if (clip == null)
         {
             switch (scene)

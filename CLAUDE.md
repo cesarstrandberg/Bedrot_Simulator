@@ -158,9 +158,15 @@ This is the only animation pipeline available — any NPC/character plan needs t
   tossed up on each edge and floated. While not jumping with floor within `snapDistance`, upward
   speed is removed and you're pulled down. **Don't turn on Rigidbody interpolation on the player**:
   MouseLook turns the body by transform, interpolation overwrote it every frame → glitchy looking (tried, reverted).
-- **Generated sounds** (`ProceduralAudio`, `Ambience` builds itself): lecture hall room tone, city
-  traffic, Elias whispers each line (`Classmate.PlayWhisper`). A real clip at
-  `Resources/Ambience_<SceneName>` replaces the generated one. No laugh yet (needs a real file).
+- **Generated sounds** (`ProceduralAudio`, `Ambience` builds itself): city traffic, Elias whispers each
+  line (`Classmate.PlayWhisper`). A real clip at `Resources/Ambience_<SceneName>` replaces the generated
+  one. Lecture hall = `Resources/Ambience_LectureHall.wav` (student murmur, volume 0.06; the generated
+  room tone sounded like wind). No laugh yet (needs a real file).
+- **Lennart's voice**: `Resources/TeacherVoice.wav` (150s), built from `DealerVoice.mp3`: words cut out,
+  split into syllables, 120 new made-up words from random syllables, shuffled, pitched ~0.9 (lower than
+  Jonte), NOT reversed. The murmur is 8 such streams, muffled. Builder script was a one-off Python
+  script (regenerate by the same recipe if needed). `LectureManager.Speak()` plays a random stretch per
+  line from a 3D source on him (log rolloff, full volume within 4m → ~1/3 in the back row).
 - **Objective line** (`Objective.cs`, builds itself): top-centre "what to do now", worked out from
   GameState/JonteStory/clock every 0.5s. Edit texts in `Objective.Current()`.
 - **The classmate** (`Seats/ClassmateSeat/Classmate_Elias`, a Student_Rami + `Classmate`): 15s after

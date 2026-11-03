@@ -18,6 +18,15 @@ public class LectureManager : MonoBehaviour
     public float walkSpeed = 1.3f;
     public float stopDistance = 1.6f;   // how close he comes before stopping in front of you
 
+    [Header("Voice (Resources/TeacherVoice.wav - gibberish, plays while each line is up)")]
+    [Range(0f, 1f)] public float voiceVolume = 0.9f;
+    // Comes from where he stands: full volume within voiceNearDistance, quieter further back
+    // (about a third in the back row), so it's loudest when he's in your face.
+    public float voiceNearDistance = 4f;
+    AudioSource voice;
+    AudioClip voiceClip;
+    Coroutine voiceStop;
+
     static readonly string[] TalkStates = { "Talking", "Talking (2)" };   // "Talking (1)" is actually a sitting clip
 
     TextMeshProUGUI subtitle;
@@ -138,6 +147,7 @@ public class LectureManager : MonoBehaviour
     void Start()
     {
         BuildSubtitle();
+        BuildVoice();
         playerStats = FindFirstObjectByType<PlayerStats>();
         if (teacher != null)
         {
@@ -326,9 +336,47 @@ public class LectureManager : MonoBehaviour
     IEnumerator Say(string line)
     {
         subtitle.text = $"<color=#d8c49a>{teacherName}:</color> {line}";
-        yield return new WaitForSeconds(1.6f + line.Length * 0.055f);
+        float duration = 1.6f + line.Length * 0.055f;
+        Speak(line == "..." ? 0f : duration * 0.9f);
+        yield return new WaitForSeconds(duration);
         subtitle.text = "";
         yield return new WaitForSeconds(gapBetweenLines);
+    }
+
+    void BuildVoice()
+    {
+        voiceClip = Resources.Load<AudioClip>("TeacherVoice");
+        if (teacher == null || voiceClip == null) return;
+        voice = teacher.gameObject.AddComponent<AudioSource>();
+        voice.playOnAwake = false;
+        voice.clip = voiceClip;
+        voice.spatialBlend = 1f;
+        voice.rolloffMode = AudioRolloffMode.Logarithmic;
+        voice.minDistance = voiceNearDistance;
+        voice.maxDistance = 40f;
+        voice.dopplerLevel = 0f;
+    }
+
+    // Plays a random stretch of the long voice take for as long as the line is on screen.
+    void Speak(float seconds)
+    {
+        if (voice == null || seconds <= 0f) return;
+        if (voiceStop != null) StopCoroutine(voiceStop);
+        voice.volume = voiceVolume;
+        voice.time = Random.Range(0f, Mathf.Max(0f, voiceClip.length - seconds - 0.5f));
+        voice.Play();
+        voiceStop = StartCoroutine(StopVoiceAfter(seconds));
+    }
+
+    IEnumerator StopVoiceAfter(float seconds)
+    {
+        yield return new WaitForSeconds(seconds);
+        for (float t = 0f; t < 0.12f; t += Time.deltaTime)
+        {
+            voice.volume = Mathf.Lerp(voiceVolume, 0f, t / 0.12f);
+            yield return null;
+        }
+        voice.Stop();
     }
 
     // Swap talking clips every so often so he keeps moving
