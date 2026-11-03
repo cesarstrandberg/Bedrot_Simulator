@@ -14,12 +14,19 @@ public class LectureManager : MonoBehaviour
     public float gapBetweenLines = 0.6f;
     public float pauseBetweenSlides = 3f;
 
+    [Header("Walks up to you when you come in late")]
+    public float walkSpeed = 1.3f;
+    public float stopDistance = 1.6f;   // how close he comes before stopping in front of you
+
     static readonly string[] TalkStates = { "Talking", "Talking (2)" };   // "Talking (1)" is actually a sitting clip
 
     TextMeshProUGUI subtitle;
     Canvas subtitleCanvas;
-    Coroutine lecture, gestures;
+    Coroutine lecture, gestures, facing;
     bool over, caught;
+    Vector3 homePos;
+    Quaternion homeRot;
+    PlayerStats playerStats;
 
     static readonly string[] CaughtLines =
     {
@@ -131,8 +138,14 @@ public class LectureManager : MonoBehaviour
     void Start()
     {
         BuildSubtitle();
+        playerStats = FindFirstObjectByType<PlayerStats>();
+        if (teacher != null)
+        {
+            homePos = teacher.transform.position;
+            homeRot = teacher.transform.rotation;
+            teacher.applyRootMotion = false;   // the walk is moved by code, not by the clip
+        }
         lecture = StartCoroutine(Run());
-        gestures = StartCoroutine(Gestures());
     }
 
     void OnEnable() { PlayerStats.JointSmoked += OnJointSmoked; }
@@ -163,6 +176,8 @@ public class LectureManager : MonoBehaviour
 
         if (lecture != null) StopCoroutine(lecture);
         if (gestures != null) StopCoroutine(gestures);
+        if (facing != null) StopCoroutine(facing);
+        if (playerStats != null) playerStats.ReleaseFocus();   // in case he was right in your face
         StartCoroutine(Caught(player, over ? CaughtAfterLines : CaughtLines));
     }
 
@@ -194,7 +209,13 @@ public class LectureManager : MonoBehaviour
 
     IEnumerator Run()
     {
-        bool lateDone = false;
+        if (screen != null) screen.Show(Slides[0].title, Slides[0].code);
+
+        // You walked in late: he stops mid-lecture, walks straight up to you and lets you have it
+        // to your face (camera zoomed on him), then goes back to the front and carries on.
+        yield return LateWalkUp();
+        gestures = StartCoroutine(Gestures());
+
         for (int s = 0; s < Slides.Length; s++)
         {
             Slide slide = Slides[s];
@@ -202,20 +223,104 @@ public class LectureManager : MonoBehaviour
             if (s > 0) yield return new WaitForSeconds(pauseBetweenSlides);
 
             for (int i = 0; i < slide.lines.Length; i++)
-            {
                 yield return Say(slide.lines[i]);
-                if (!lateDone && s == 0 && i == 0)   // you just walked in
-                {
-                    lateDone = true;
-                    yield return new WaitForSeconds(1f);
-                    foreach (string l in LateRemark) yield return Say(l);
-                    yield return new WaitForSeconds(1f);
-                }
-            }
         }
         subtitle.text = "";
         over = true;
         Notify.Show("The lecture is over.", 3f);
+    }
+
+    IEnumerator LateWalkUp()
+    {
+        Transform player = Camera.main != null ? Camera.main.transform : null;
+        if (teacher == null || player == null)
+        {
+            foreach (string l in LateRemark) yield return Say(l);
+            yield break;
+        }
+
+        yield return new WaitForSeconds(0.4f);
+
+        // First line on the way over
+        teacher.CrossFadeInFixedTime("Walking", 0.3f);
+        Coroutine first = StartCoroutine(Say(LateRemark[0]));
+        yield return WalkTo(() => player.position, stopDistance);
+        yield return first;
+
+        // In your face for the rest
+        teacher.CrossFadeInFixedTime("Talking (2)", 0.3f);
+        if (playerStats != null) playerStats.FocusOn(teacher.transform);
+        facing = StartCoroutine(KeepFacing(player));
+        for (int i = 1; i < LateRemark.Length; i++) yield return Say(LateRemark[i]);
+        StopCoroutine(facing);
+        if (playerStats != null) playerStats.ReleaseFocus();
+
+        // Back to the front of the room
+        teacher.CrossFadeInFixedTime("Walking", 0.3f);
+        yield return WalkTo(() => homePos, 0.05f);
+        yield return TurnTo(homeRot, 0.6f);
+        teacher.CrossFadeInFixedTime("Talking", 0.3f);
+        yield return new WaitForSeconds(0.8f);
+    }
+
+    // Straight-line walk (the hall has no NavMesh; the floor between the stage and the doors is flat
+    // and clear), keeping his feet on whatever floor is under him.
+    IEnumerator WalkTo(System.Func<Vector3> target, float stopAt)
+    {
+        Transform t = teacher.transform;
+        float started = Time.time;
+        while (Time.time - started < 30f)
+        {
+            Vector3 to = target() - t.position;
+            to.y = 0f;
+            if (to.magnitude <= stopAt) break;
+
+            Quaternion look = Quaternion.LookRotation(to);
+            t.rotation = Quaternion.Slerp(t.rotation, look, Time.deltaTime * 6f);
+            Vector3 pos = t.position + to.normalized * Mathf.Min(walkSpeed * Time.deltaTime, to.magnitude - stopAt);
+            pos.y = FloorHeight(pos, t.position.y);
+            t.position = pos;
+            yield return null;
+        }
+    }
+
+    float FloorHeight(Vector3 at, float fallback)
+    {
+        RaycastHit[] hits = Physics.RaycastAll(at + Vector3.up * 1f, Vector3.down, 2f, ~0, QueryTriggerInteraction.Ignore);
+        float best = float.NegativeInfinity;
+        foreach (RaycastHit h in hits)
+        {
+            if (h.transform.IsChildOf(teacher.transform)) continue;
+            if (h.collider.GetComponentInParent<PlayerMovement>() != null) continue;
+            if (h.normal.y < 0.5f) continue;
+            if (h.point.y > best) best = h.point.y;
+        }
+        return best > float.NegativeInfinity ? best : fallback;
+    }
+
+    IEnumerator KeepFacing(Transform player)
+    {
+        Transform t = teacher.transform;
+        while (true)
+        {
+            Vector3 dir = player.position - t.position;
+            dir.y = 0f;
+            if (dir.sqrMagnitude > 0.01f)
+                t.rotation = Quaternion.Slerp(t.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 5f);
+            yield return null;
+        }
+    }
+
+    IEnumerator TurnTo(Quaternion rot, float seconds)
+    {
+        Transform t = teacher.transform;
+        Quaternion from = t.rotation;
+        for (float f = 0f; f < 1f; f += Time.deltaTime / seconds)
+        {
+            t.rotation = Quaternion.Slerp(from, rot, Mathf.SmoothStep(0f, 1f, f));
+            yield return null;
+        }
+        t.rotation = rot;
     }
 
     IEnumerator Say(string line)
