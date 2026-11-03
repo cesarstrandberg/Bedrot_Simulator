@@ -283,13 +283,19 @@ public class LectureManager : MonoBehaviour
         {
             Vector3 to = target() - t.position;
             to.y = 0f;
-            if (to.magnitude <= stopAt) break;
+            // Small margin: stepping exactly "what's left" left him a rounding error short forever,
+            // walking on the spot next to his place.
+            float left = to.magnitude - stopAt;
+            if (left <= 0.02f) break;
 
             Quaternion look = Quaternion.LookRotation(to);
             t.rotation = Quaternion.Slerp(t.rotation, look, Time.deltaTime * 6f);
-            Vector3 pos = t.position + to.normalized * Mathf.Min(walkSpeed * Time.deltaTime, to.magnitude - stopAt);
+            float step = walkSpeed * Time.deltaTime;
+            bool arriving = step >= left;
+            Vector3 pos = t.position + to.normalized * Mathf.Min(step, left);
             pos.y = FloorHeight(pos, t.position.y);
             t.position = pos;
+            if (arriving) break;
             yield return null;
         }
     }
