@@ -338,6 +338,15 @@ already ×100 from Blender — scaled via a `Model` holder ×0.08 → 19cm, cent
   where the player first meets the dealer, story-wise.
 - **Escalation arc**: deeper into the drug business → acquiring a gun → going rogue. Needs actual
   design work — triggers, pacing, what "rogue" means mechanically. Not started.
+- **Göran rework (2026-11-03, untested in Play mode)**: he no longer stops at the door and waits for a
+  click. Every strike he walks (elevator if needed) to wherever you are (`WalkUpToPlayer`), and once
+  within `talkDistance` (2m) with line of sight he starts yelling on his own: `PlayerStats.FocusOn()`
+  holds you facing him and zooms the camera to `focusFov` (32) on his face, `ReleaseFocus()` after
+  (MouseLook eases the FOV back). Same zoom on the bat hold. Strike 2: yell → `retreatPoint` → back to
+  you → yell. Gives up after `giveUpAfter` (45s). A new joint while he's already out continues from
+  where he stands instead of teleporting to spawn. `stopPoint`/knock are unused now. Voice files
+  `NeighbourVoice_*.wav` are reversed per speech piece (pauses kept in place; originals in git 1d19387).
+  Everything below about clicking/Waiting at the door is historical.
 - **Neighbor complaint/escalation system** (`NeighborAI` + `NeighborClickable`, implemented but not
   fully wired up yet — see wiring status below): copies the `DealerAI`/`DeliveryDriverAI`
   NavMeshAgent-walk-to-door/stair-climb/knock/footstep pattern rather than new locomotion code.

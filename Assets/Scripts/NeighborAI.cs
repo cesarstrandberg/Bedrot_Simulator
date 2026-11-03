@@ -68,6 +68,12 @@ public class NeighborAI : MonoBehaviour
     // faces the door correctly.
     public float turnDuration = 0.4f;
 
+    [Header("Kommer fram till dig (var du än är)")]
+    // He walks up to wherever you are and starts talking on his own once he's this close and can see
+    // you - no clicking. You're held facing him with the camera zoomed in on his face while he yells.
+    public float talkDistance = 2.0f;
+    public float giveUpAfter = 45f;    // couldn't reach you in this many seconds -> goes home
+
     public NeighborState CurrentState { get; private set; } = NeighborState.Idle;
 
     private NavMeshAgent agent;
@@ -81,6 +87,8 @@ public class NeighborAI : MonoBehaviour
     private bool waitingForInteract;
     private Coroutine activeRoutine;
     private AudioSource footstepSource;
+    private bool resumeFromHere;
+    private bool gaveUp;
 
     void Awake()
     {
@@ -170,10 +178,15 @@ public class NeighborAI : MonoBehaviour
         // to Idle yet, which is exactly what happens when joints are smoked faster than his walk
         // cycle. ClimbToStopPoint() resets him to spawn at the start of every routine, so restarting
         // mid-walk/mid-yell is safe.
+        // Already out and walking around (not stuck mid elevator ride) - carry on from where he is
+        // instead of teleporting back to his spawn and starting the whole walk over.
+        resumeFromHere = CurrentState != NeighborState.Idle && agent != null && agent.enabled;
+
         if (activeRoutine != null) StopCoroutine(activeRoutine);
         if (dialogueSubtitle != null) dialogueSubtitle.Stop();
         StopVoice();
         waitingForInteract = false;
+        if (playerStats != null) playerStats.ReleaseFocus();
 
         // The bat only comes out for the charge - put away again if a routine restarts on strike 1/2.
         if (batInHand != null) batInHand.SetActive(jointsSmoked >= 3);
@@ -210,54 +223,71 @@ public class NeighborAI : MonoBehaviour
         if (activeRoutine != null) StopCoroutine(activeRoutine);
         if (dialogueSubtitle != null) dialogueSubtitle.Stop();
         StopVoice();
+        if (playerStats != null) playerStats.ReleaseFocus();
         activeRoutine = StartCoroutine(LeaveToSpawn());
     }
 
     IEnumerator Strike1Routine()
     {
-        yield return ApproachAndKnock(walkSpeed);
+        yield return WalkUpToPlayer(walkSpeed);
+        if (gaveUp) { yield return LeaveToSpawn(); yield break; }
 
-        CurrentState = NeighborState.Yelling;
-        if (animator != null) animator.SetTrigger("AngryTrigger");
-        PlayVoice(strike1Voice);
-        if (dialogueSubtitle != null) yield return StartCoroutine(dialogueSubtitle.PlayRoutine(strike1Lines));
+        yield return Yell("AngryTrigger", strike1Voice, strike1Lines);
 
         yield return LeaveToSpawn();
     }
 
     IEnumerator Strike2Routine()
     {
-        yield return ApproachAndKnock(walkSpeed);
+        yield return WalkUpToPlayer(walkSpeed);
+        if (gaveUp) { yield return LeaveToSpawn(); yield break; }
 
-        CurrentState = NeighborState.Yelling;
-        if (animator != null) animator.SetTrigger("AngryTrigger");
-        PlayVoice(strike2FirstVoice);
-        if (dialogueSubtitle != null) yield return StartCoroutine(dialogueSubtitle.PlayRoutine(strike2LinesFirst));
+        yield return Yell("AngryTrigger", strike2FirstVoice, strike2LinesFirst);
 
+        // Stalks off a few steps, turns around, comes back angrier.
         yield return WaitForGestureToFinish();
         CurrentState = NeighborState.Retreating;
         agent.updateRotation = true;
         agent.isStopped = false;
-        if (retreatPoint != null)
+        if (retreatPoint != null && OnUpperFloor(transform.position) == OnUpperFloor(retreatPoint.position))
         {
             agent.SetDestination(retreatPoint.position);
             yield return WaitUntilArrived();
         }
 
         CurrentState = NeighborState.Returning;
-        agent.SetDestination(stopPoint.position);
-        yield return WaitUntilArrived();
-        agent.isStopped = true;
-        agent.updateRotation = false;
-        yield return FaceRotationRoutine(stopPoint.rotation);
+        resumeFromHere = true;
+        yield return WalkUpToPlayer(walkSpeed);
+        if (gaveUp) { yield return LeaveToSpawn(); yield break; }
 
-        CurrentState = NeighborState.Yelling;
         // More escalated the second time round - the pointing/finger-jabbing variant.
-        if (animator != null) animator.SetTrigger("AngryPointTrigger");
-        PlayVoice(strike2SecondVoice);
-        if (dialogueSubtitle != null) yield return StartCoroutine(dialogueSubtitle.PlayRoutine(strike2LinesSecond));
+        yield return Yell("AngryPointTrigger", strike2SecondVoice, strike2LinesSecond);
 
         yield return LeaveToSpawn();
+    }
+
+    // Holds you facing him (camera zoomed on his face) for one block of yelling, then lets go.
+    IEnumerator Yell(string trigger, AudioClip voice, DialogueSubtitle.Line[] lines)
+    {
+        CurrentState = NeighborState.Yelling;
+        if (playerStats != null) playerStats.FocusOn(transform);
+        StartCoroutine(FacePlayerWhileYelling());
+        if (animator != null) animator.SetTrigger(trigger);
+        PlayVoice(voice);
+        if (dialogueSubtitle != null) yield return StartCoroutine(dialogueSubtitle.PlayRoutine(lines));
+        if (playerStats != null) playerStats.ReleaseFocus();
+    }
+
+    IEnumerator FacePlayerWhileYelling()
+    {
+        while (CurrentState == NeighborState.Yelling && playerStats != null)
+        {
+            Vector3 dir = playerStats.transform.position - transform.position;
+            dir.y = 0f;
+            if (dir.sqrMagnitude > 0.01f)
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 6f);
+            yield return null;
+        }
     }
 
     // Strike 3+: run to the door same as the walk-up above, then keep chasing the player's live
@@ -267,7 +297,8 @@ public class NeighborAI : MonoBehaviour
     // trigger either way.
     IEnumerator ChargeRoutine()
     {
-        yield return ClimbToStopPoint(runSpeed);
+        yield return StartOut(runSpeed);
+        yield return GoToPlayersFloor();
 
         CurrentState = NeighborState.Charging;
         agent.updateRotation = true;
@@ -374,45 +405,104 @@ public class NeighborAI : MonoBehaviour
         gameObject.SetActive(false);
     }
 
-    // Walks him from spawn, up in the elevator, to stopPoint. Shared by the strike 1/2 approach and the
-    // strike 3+ charge (just called with a different speed).
-    IEnumerator ClimbToStopPoint(float speed)
+    // Puts him at his spawn (ground floor) ready to walk - unless he was already out and about when
+    // the new strike came in, then he just carries on from where he stands.
+    IEnumerator StartOut(float speed)
     {
-        transform.position = spawnPosition;
-        transform.rotation = spawnRotation;
+        if (!resumeFromHere)
+        {
+            transform.position = spawnPosition;
+            transform.rotation = spawnRotation;
+        }
+        resumeFromHere = false;
         gameObject.SetActive(true);
 
         agent.enabled = true;
-        agent.Warp(spawnPosition);
+        agent.Warp(transform.position);
         agent.speed = speed;
         agent.isStopped = false;
         agent.updateRotation = true;
         CurrentState = NeighborState.Approaching;
-
-        yield return RideElevator(true);
-
-        agent.SetDestination(stopPoint.position);
-        yield return WaitUntilArrived();
+        yield break;
     }
 
-    IEnumerator ApproachAndKnock(float speed)
+    Vector3 PlayerPos => playerStats != null ? playerStats.transform.position : transform.position;
+
+    // Floors are told apart by the elevator's two stops. Positions are floor level (his feet), so the
+    // player's camera height is taken off first.
+    bool OnUpperFloor(Vector3 feet)
     {
-        yield return ClimbToStopPoint(speed);
+        if (elevator == null || elevator.upPoint == null || elevator.downPoint == null) return true;
+        return feet.y > (elevator.upPoint.position.y + elevator.downPoint.position.y) * 0.5f;
+    }
+
+    bool PlayerOnUpperFloor() => OnUpperFloor(PlayerPos - Vector3.up * 1.5f);
+
+    // Takes the elevator if you're on the other floor.
+    IEnumerator GoToPlayersFloor()
+    {
+        bool playerUp = PlayerOnUpperFloor();
+        if (OnUpperFloor(transform.position) != playerUp) yield return RideElevator(playerUp);
+    }
+
+    // Walks up to wherever you are and stops once he's within talkDistance and can actually see you.
+    // gaveUp = true if he couldn't get to you in time.
+    IEnumerator WalkUpToPlayer(float speed)
+    {
+        gaveUp = false;
+        yield return StartOut(speed);
+        yield return GoToPlayersFloor();
+
+        CurrentState = NeighborState.Approaching;
+        agent.speed = speed;
+        agent.isStopped = false;
+        agent.updateRotation = true;
+
+        float started = Time.time;
+        float repath = 0f;
+        while (true)
+        {
+            Vector3 flat = PlayerPos - transform.position;
+            flat.y = 0f;
+            if (flat.magnitude <= talkDistance && CanSeePlayer()) break;
+
+            if (Time.time - started > giveUpAfter) { gaveUp = true; break; }
+
+            // You took the elevator on him - follow.
+            if (OnUpperFloor(transform.position) != PlayerOnUpperFloor()) yield return GoToPlayersFloor();
+
+            repath -= Time.deltaTime;
+            if (repath <= 0f && agent.enabled)
+            {
+                agent.SetDestination(PlayerPos);
+                repath = 0.25f;
+            }
+            yield return null;
+        }
 
         agent.isStopped = true;
-        // Stop the agent from fighting the manual face-turn below with its own rotation-to-velocity
-        // behaviour - re-enabled again once he actually moves (LeaveToSpawn/ChargeRoutine/retreat).
+        agent.ResetPath();
         agent.updateRotation = false;
-        AudioSource bellSource = doorbellAudioSource != null ? doorbellAudioSource : audioSource;
-        if (bellSource != null && knockSound != null) bellSource.PlayOneShot(knockSound, knockVolume);
+        currentSpeed = 0f;
+    }
 
-        yield return FaceRotationRoutine(stopPoint.rotation);
-
-        // Doesn't start yelling on his own - waits here until the player clicks him, same beat as
-        // taking the jar from the dealer.
-        CurrentState = NeighborState.Waiting;
-        waitingForInteract = true;
-        yield return new WaitUntil(() => !waitingForInteract);
+    // Clear line from his eyes to the player's camera (ignores his own colliders and triggers).
+    bool CanSeePlayer()
+    {
+        if (playerStats == null) return false;
+        Vector3 eyes = transform.position + Vector3.up * 1.6f;
+        Vector3 to = PlayerPos - eyes;
+        float dist = to.magnitude;
+        if (dist < 0.01f) return true;
+        RaycastHit[] hits = Physics.RaycastAll(eyes, to / dist, dist, ~0, QueryTriggerInteraction.Ignore);
+        foreach (RaycastHit h in hits)
+        {
+            if (h.transform.IsChildOf(transform)) continue;
+            if (h.collider.GetComponentInParent<PlayerMovement>() != null) continue;
+            if (h.distance > dist - 0.4f) continue;   // the player's own body/hands right at the end
+            return false;
+        }
+        return true;
     }
 
     // Each voice clip is built to the exact length of its subtitle block (pauses included), so it
@@ -459,7 +549,7 @@ public class NeighborAI : MonoBehaviour
         agent.isStopped = false;
         agent.speed = walkSpeed;
 
-        yield return RideElevator(false);
+        if (OnUpperFloor(transform.position) && !OnUpperFloor(spawnPosition)) yield return RideElevator(false);
 
         agent.SetDestination(spawnPosition);
         yield return WaitUntilArrived();

@@ -25,6 +25,15 @@ public class MouseLook : MonoBehaviour
     private Vector3 defaultLocalPos;
     public Vector3 leanOffset = new Vector3(0f, -0.4f, 1.5f);
 
+    // After something else turned the camera (a conversation, getting grabbed), carry on from
+    // that pitch instead of snapping back to where the mouse last had it.
+    public void SyncPitchToCamera()
+    {
+        float x = transform.localEulerAngles.x;
+        if (x > 180f) x -= 360f;
+        xRotation = Mathf.Clamp(x, -90f, 90f);
+    }
+
     void Start()
     {
         Cursor.lockState = CursorLockMode.Locked;

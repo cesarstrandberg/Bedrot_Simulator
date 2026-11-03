@@ -164,8 +164,35 @@ public class PlayerStats : MonoBehaviour
         StartCoroutine(FaceAttacker(attacker));
     }
 
+    [Header("Talk focus (someone talks to you up close)")]
+    public float focusFov = 32f;      // camera zooms in to this while held - normal is ~60
+    public float faceHeight = 1.6f;   // how high up on the talker the camera looks
+
+    public bool IsHeld => isHeld;
+
+    // Someone walked up to talk to you (Göran yelling, Lennart): freeze, turn to face them and zoom in
+    // on their face. ReleaseFocus() gives control back. No-op while passing out or already held.
+    public void FocusOn(Transform talker)
+    {
+        HoldForHit(talker);
+    }
+
+    public void ReleaseFocus()
+    {
+        if (!isHeld || hasPassedOut) return;
+        isHeld = false;   // ends FaceAttacker
+        if (movementScript != null) movementScript.enabled = true;
+        MouseLook mouseLook = playerCamera.GetComponent<MouseLook>();
+        if (mouseLook != null)
+        {
+            mouseLook.SyncPitchToCamera();   // keep looking where you were turned, no snap back
+            mouseLook.isPassingOut = false;  // MouseLook eases the zoom back to normal by itself
+        }
+    }
+
     IEnumerator FaceAttacker(Transform attacker)
     {
+        Camera cam = playerCamera.GetComponent<Camera>();
         MouseLook mouseLook = playerCamera.GetComponent<MouseLook>();
         Transform body = mouseLook != null ? mouseLook.playerBody : null;
 
@@ -179,9 +206,10 @@ public class PlayerStats : MonoBehaviour
                     body.rotation = Quaternion.Slerp(body.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 4f);
             }
             // Look up at his face (~1.6m up on him)
-            Vector3 toFace = attacker.position + Vector3.up * 1.6f - playerCamera.position;
+            Vector3 toFace = attacker.position + Vector3.up * faceHeight - playerCamera.position;
             float pitch = -Mathf.Atan2(toFace.y, new Vector2(toFace.x, toFace.z).magnitude) * Mathf.Rad2Deg;
             playerCamera.localRotation = Quaternion.Slerp(playerCamera.localRotation, Quaternion.Euler(pitch, 0f, 0f), Time.deltaTime * 4f);
+            if (cam != null) cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, focusFov, Time.deltaTime * 2.5f);
             yield return null;
         }
     }
