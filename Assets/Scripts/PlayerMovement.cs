@@ -10,6 +10,14 @@ public class PlayerMovement : MonoBehaviour
     public float jumpForce = 5f;
     private bool isCrouching = false;
 
+    [Header("Ground snap (stairs/steps)")]
+    // Walking up a step edge flung the capsule upward and it floated over the stairs in the lecture
+    // hall. While walking (not jumping) with floor just below, leftover upward speed is removed and
+    // you're pulled down onto it.
+    public float snapDistance = 0.45f;   // how far below the capsule the floor can be and still snap
+    public float snapAcceleration = 40f;
+    private float lastJumpTime = -10f;
+
     [HideInInspector] 
     public float weedSpeedModifier = 1f; //modified by PlayerStats.
 
@@ -25,6 +33,7 @@ public class PlayerMovement : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody>();
+        rb.interpolation = RigidbodyInterpolation.Interpolate;   // smooth camera over steps (was off)
         col = GetComponent<CapsuleCollider>();
         cam = GetComponentInChildren<Camera>(); // Hittar kameran automatiskt
 
@@ -43,6 +52,7 @@ public class PlayerMovement : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
         {
             rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+            lastJumpTime = Time.time;
         }
 
         // Crouch (C - Toggle)
@@ -96,5 +106,23 @@ public class PlayerMovement : MonoBehaviour
         Vector3 velocityChange = targetVelocity - currentVelocity;
 
         rb.AddForce(velocityChange, ForceMode.VelocityChange);
+
+        SnapToGround();
+    }
+
+    void SnapToGround()
+    {
+        if (rb.isKinematic || Time.time - lastJumpTime < 0.4f) return;
+
+        float halfHeight = (col != null ? col.height * 0.5f * transform.lossyScale.y : 1f);
+        RaycastHit hit;
+        if (!Physics.Raycast(transform.position, Vector3.down, out hit, halfHeight + snapDistance, ~0, QueryTriggerInteraction.Ignore)) return;
+        if (hit.normal.y < 0.5f) return;   // a wall, not a floor
+
+        Vector3 v = rb.linearVelocity;
+        if (v.y > 0f) rb.linearVelocity = new Vector3(v.x, 0f, v.z);
+
+        // Floor is below the capsule but not touching it yet (just walked off a step) - pull down.
+        if (hit.distance > halfHeight + 0.02f) rb.AddForce(Vector3.down * snapAcceleration, ForceMode.Acceleration);
     }
 }
