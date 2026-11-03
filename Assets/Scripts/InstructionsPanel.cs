@@ -65,9 +65,11 @@ public class InstructionsPanel : MonoBehaviour
         "   or order on darkmarket.se. Each visit he takes whatever cash you have toward the old debt.\n" +
         "<b>Rent</b>  5000 kr, taken automatically on Day 7 at 12:00.\n" +
         "<b>Göran, the neighbour</b>  hates the smell. Every joint you smoke at home makes him angrier.\n" +
-        "   He comes up and knocks - click him and he says his piece. The third time he doesn't come to talk.\n" +
+        "   He comes up to wherever you are and says it to your face. The third time he doesn't come to talk.\n" +
         "<b>Your body</b>  hunger, thirst and craving go down over time (bars bottom left). Weed gives\n" +
-        "   you the munchies. Too drunk or too high and you black out.\n" +
+        "   you the munchies. Too drunk or too high and you black out. Both wear off after a while.\n" +
+        "<b>The goal</b>  what to do next is always shown at the top of the screen.\n" +
+        "<b>Testing</b>  <b>F4</b> skips ahead one day.\n" +
         "<b>Day 7</b>  ...you'll see.\n" +
         "<color=#aaaaaa>A day is 24 real minutes. Sleep to skip ahead.</color>\n";
 

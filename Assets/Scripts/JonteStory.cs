@@ -23,6 +23,10 @@ public class JonteStory : MonoBehaviour
     static bool called, warned, finalTexted, deliveryPending, orderOnCallEnd;
     static float deliverAt;
 
+    // Read by Objective (the goal line at the top of the screen)
+    public static bool Called => called;
+    public static bool DeliveryPending => deliveryPending;
+
     public static void ResetAll()
     {
         called = warned = finalTexted = deliveryPending = orderOnCallEnd = false;
